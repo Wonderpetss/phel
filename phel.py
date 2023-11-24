@@ -15,7 +15,7 @@ class User:
     def __init__(self, root):
         self.root = root
         self.root.title("Book Library Locator")
-        self.root.geometry("640x440")
+        self.root.geometry("640x480")
         self.root.configure(bg="#ffffff")
         self.canvas = Canvas(
             self.root,
@@ -216,7 +216,7 @@ class QRCodeScanner:
 
     def retrieve_data(self, selected_shelf):
         try:
-            base_url = "http://192.168.68.102:5000/"
+            base_url = "https://wonderpets.pythonanywhere.com/"
             shelf_url = base_url + selected_shelf
             response = requests.get(shelf_url)
             print("API RESPONSE:", response.json())
@@ -238,11 +238,21 @@ class QRCodeScanner:
         self.window.after(30, self.update)
 
     def close_window(self):
-        self.camera_running = False
-        if self.camera.isOpened():
-            self.camera.release()
-        self.window.destroy()
+        asktoproceed = messagebox.askyesno("Confirmation", "Done scanning?")
+        if asktoproceed:
+            ask = messagebox.askyesno("Confirmation", "Scan Again?")
+            if ask: 
+                self.camera_running = False
+                if self.camera.isOpened():
+                    self.camera.release()
+                self.open_combobox()
+            else:
+                pass
 
+    def open_combobox(self):
+        self.window.withdraw()
+        MainApplication(self.window)
+       
     def show_frame(self, frame, decoded_objects):
         for obj in decoded_objects:
             x, y, w, h = obj.rect
@@ -574,7 +584,7 @@ class FirstWindow:
         self.canvas.place(x=0, y=0)
         
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        image_path = os.path.join(script_dir, "bg.png")
+        image_path = os.path.join(script_dir, "method.png")
 
         if os.path.exists(image_path):
             background_img = PhotoImage(file=image_path)
@@ -591,7 +601,7 @@ class FirstWindow:
             command=self.open_second_window,
             relief="flat"
         )
-        self.b0.place(x=115, y=240, width=123, height=105)
+        self.b0.place(x=115, y=220, width=123, height=105)
         self.b0.image = img0  
 
         img1 = PhotoImage(file=os.path.join(script_dir, "img1.png"))
@@ -603,7 +613,7 @@ class FirstWindow:
             command=self.open_pers_window,
             relief="flat"
         )
-        self.b1.place(x=258, y=240, width=123, height=105)
+        self.b1.place(x=258, y=220, width=123, height=105)
         self.b1.image = img1  
 
         img2 = PhotoImage(file=os.path.join(script_dir, "img2.png"))
@@ -615,7 +625,7 @@ class FirstWindow:
             command=self.open_third_window,
             relief="flat"
         )
-        self.b2.place(x=400, y=240, width=123, height=105)
+        self.b2.place(x=400, y=220, width=123, height=105)
         self.b2.image= img2
 
         img3 = PhotoImage(file=os.path.join(script_dir, "img3.png"))
@@ -627,7 +637,7 @@ class FirstWindow:
             command=self.scan_user_window,
             relief="flat"
         )
-        self.b3.place(x=258, y=370, width=123, height=25)
+        self.b3.place(x=258, y=350, width=123, height=25)
         self.b3.image= img3
 
     def open_second_window(self):
@@ -643,10 +653,13 @@ class FirstWindow:
         Return(self.window)
 
     def scan_user_window(self):
-        self.window.withdraw()
-        user_window = tk.Toplevel(self.parent_window)
-        user_window.title("User Window")
-        User(user_window)
+        asktoproceed = messagebox.askyesno("Confirmation", "Do you want to proceed to scan user again?")
+        
+        if asktoproceed:
+            self.window.withdraw()
+            user_window = tk.Toplevel(self.parent_window)
+            user_window.title("User Window")
+            User(user_window)
 
 class MainApplication(tk.Toplevel):
     def __init__(self, parent_window):
@@ -720,10 +733,20 @@ class MainApplication(tk.Toplevel):
     def update_selected_shelf_label(self, event):
         selected_shelf = self.combo_box_value.get()
         self.selected_shelf_label.config(text=f"Selected Shelf: {selected_shelf}")
+        
+        # Enable the "Open Scanner" button if a shelf is selected
+        if selected_shelf:
+            self.return2.config(state="normal")
+        else:
+            self.return2.config(state="disabled")
 
     def open_scanner(self):
-        self.withdraw()
-        QRCodeScanner(self.parent_window, self.combo_box_value.get())  # Pass selected_shelf to QRCodeScanner
+        selected_shelf = self.combo_box_value.get()
+        if selected_shelf:  # Only proceed if a shelf is selected
+            self.withdraw()
+            QRCodeScanner(self.parent_window, selected_shelf)  # Pass selected_shelf to QRCodeScanner
+        else:
+            messagebox.showwarning("Warning", "Please select a shelf first.")
 
     def back_to_first_window(self):
         ask_to_proceed = messagebox.askyesno("Confirmation", "Do you want to proceed to the first window?")
