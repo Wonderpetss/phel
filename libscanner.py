@@ -206,9 +206,10 @@ class ScanUser:
                 pass  
 
 class QRCodeScanner:
-    def __init__(self, parent_window=None, selected_shelf="", scanuser = None):
+    def __init__(self, parent_window=None, selected_shelf="", selected_row="", scanuser = None):
         self.parent_window = parent_window
         self.selected_shelf = selected_shelf
+        self.selected_row = selected_row
         self.scanuser = scanuser
 
         # self.user_instance = ScanUser()
@@ -266,7 +267,7 @@ class QRCodeScanner:
         self.back_button = Button(self.window, text="Back to First Window", command=self.back_to_first_window)
         self.back_button.pack()
 
-        self.qr_values = self.retrieve_data(self.selected_shelf)  
+        self.qr_values = self.retrieve_data(self.selected_shelf, self.selected_row)  
         self.camera_running = True
 
         self.red_qr_codes = set()
@@ -293,10 +294,10 @@ class QRCodeScanner:
         a = self.length
         return a
 
-    def retrieve_data(self, selected_shelf):
+    def retrieve_data(self, selected_shelf, selected_row):
         try:
             base_url = "https://wonderpets.pythonanywhere.com/"
-            shelf_url = base_url + selected_shelf
+            shelf_url = base_url + selected_shelf + "/" + selected_row
             response = requests.get(shelf_url)
             print("API RESPONSE:", response.json())
             if response.status_code == 200:
@@ -310,8 +311,6 @@ class QRCodeScanner:
             return set()
 
     def update(self):
-        # self.update_date_time()
-
         ret, frame = self.camera.read()
         if ret:
             decoded_objects = decode(frame)
@@ -397,10 +396,6 @@ class QRCodeScanner:
         except Exception as e:
             print("Error fetching data from database:", str(e))
 
-    # def user_id(self):
-    #     a = ScanUser.scanned_id()
-    #     return a
-
     def back_to_first_window(self):
         asktoproceed = messagebox.askyesno("Confirmation", "Do you want to proceed to the first window?")
         
@@ -465,6 +460,7 @@ class Borrow:
     def borrower_qr_code(self):
         if self.qr_detected:
             self.qr_borrower_label.config(text=f"Borrower: {self.qr_databorrowers}")
+            self.borrowersqr = str(self.qr_databorrowers)
             
             self.borrow_button.config(state="normal")
             self.borrower_button.config(state="disabled")
@@ -517,7 +513,7 @@ class Borrow:
 
                             #insert to database
                             insert_query = "INSERT INTO borrowed_books (book_id, staff_librarian, borrower, date_borrowed, date_return, status) VALUES (%s,%s,%s, %s, %s, %s)"
-                            data_to_insert = (self.qr_data, self.scanuser, self.qr_databorrowers, formatted_current_date, formatted_return_date, 'Borrowed')  # Define the values to be inserted
+                            data_to_insert = (self.strqr, self.scanuser, self.borrowersqr, formatted_current_date, formatted_return_date, 'Borrowed')  # Define the values to be inserted
                             cursor.execute(insert_query, data_to_insert)
                             connection.commit()
                             print('Successfully inserted')
@@ -627,6 +623,7 @@ class Return:
     def borrower_qr_code(self):
         if self.qr_detected:
             self.qr_borrower_label.config(text=f"Borrower: {self.qr_databorrowers}")
+            self.borrowerqr = self.qr_databorrowers
 
             self.return_button.config(state="active")
             self.borrower_button.config(state="disabled")
@@ -634,6 +631,7 @@ class Return:
     def return_qr_code(self):
         if self.qr_detected:
             self.qr_data_label.config(text=f"QR Code Data: {self.qr_data}")
+            self.strqr = self.qr_data
         
         try:
             with sshtunnel.SSHTunnelForwarder(
@@ -651,7 +649,7 @@ class Return:
                 cursor = connection.cursor()
 
                 #get quantity of the book_id detected
-                cursor.execute("SELECT quantity FROM gen_books WHERE book_id = %s", (self.qr_data,))
+                cursor.execute("SELECT quantity FROM gen_books WHERE book_id = %s", (self.strqr,))
                 cur_quan = cursor.fetchone()
 
                 if cur_quan:
@@ -659,17 +657,17 @@ class Return:
                     new_quan = cur_quan + 1  
 
                     #update quantity field -subtract 1
-                    cursor.execute("UPDATE gen_books SET quantity = %s WHERE book_id = %s", (new_quan, self.qr_data))
+                    cursor.execute("UPDATE gen_books SET quantity = %s WHERE book_id = %s", (new_quan, self.strqr))
                     connection.commit()
                     print("Quantity updated successfully!")
 
                     if new_quan > 0:
-                        cursor.execute("UPDATE gen_books SET availability = %s WHERE book_id = %s", ('available', self.qr_data))
+                        cursor.execute("UPDATE gen_books SET availability = %s WHERE book_id = %s", ('available', self.strqr))
                         connection.commit()
                         print("Book available")
 
                     #get date_return based from the macthed book_id and borrower detected
-                    cursor.execute("SELECT date_return FROM borrowed_books WHERE book_id = %s and borrower = %s", (self.qr_data,self.qr_databorrowers))
+                    cursor.execute("SELECT date_return FROM borrowed_books WHERE book_id = %s and borrower = %s", (self.strqr,self.borrowerqr))
                     cur_datereturn = cursor.fetchone()
 
                     if cur_datereturn:
@@ -677,11 +675,11 @@ class Return:
 
                         if current_date > cur_datereturn:
                             #update borrowed_books
-                            cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned Late', self.qr_data, self.qr_databorrowers))
+                            cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned Late', self.strqr, self.borrowerqr))
                             connection.commit()
                             print("returned late")
                         else:
-                            cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned', self.qr_data, self.qr_databorrowers))
+                            cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned', self.strqr, self.borrowerqr))
                             connection.commit()
                             print("returned")
 
@@ -819,7 +817,7 @@ class FirstWindow:
         self.scanuser_label.pack()
     
     def show_scanuser_label(self, scanuser):
-        self.scanuser_label.config(text=scanuser)
+        self.scanuser_label.config(text=f"Welcome, {scanuser}")
         self.scanuser_string = str(scanuser)
         print(self.scanuser_string)
 
@@ -897,6 +895,16 @@ class MainApplication(tk.Toplevel):
         self.Home.place(x = 80, y = 145, width = 40, height = 39)
         self.Home.image=imgHome
         self.combo_box_value = tk.StringVar()  
+        self.row_value = tk.StringVar() 
+
+        self.row = ttk.Combobox(
+            self, 
+            values=["R-1", "R-2", "R-3", "R-4", "R-5"],
+            textvariable=self.row_value,
+            font=("Arial", 14),
+            state="readonly",
+)
+        self.row.place(x=170, y=160, width=297, height=39)
 
         self.combo_box = ttk.Combobox(
             self, 
@@ -905,7 +913,7 @@ class MainApplication(tk.Toplevel):
             font=("Arial", 14),
             state="readonly",
 )
-        self.combo_box.place(x=170, y=180, width=297, height=39)
+        self.combo_box.place(x=170, y=210, width=297, height=39)
         
         img4 = PhotoImage(file=os.path.join(script_dir, "return.png"))
         self.return2 = Button(
@@ -919,11 +927,15 @@ class MainApplication(tk.Toplevel):
         self.return2.place(x=270, y=250, width=100, height=90)
         self.return2.image=img4
         
-
         self.combo_box.bind("<<ComboboxSelected>>", self.update_selected_shelf_label)
+
+        self.row.bind("<<ComboboxSelected>>", self.update_selected_shelf_label)
 
         self.selected_shelf_label = Label(self, text="Selected Shelf: None")
         self.selected_shelf_label.pack_forget()
+
+        self.selected_row_label = Label(self, text="Selected Row: None")
+        self.selected_row_label.pack_forget()
 
         self.scanuser_label = Label(self, text="")
         self.scanuser_label.pack_forget()
@@ -935,23 +947,25 @@ class MainApplication(tk.Toplevel):
 
 
     def update_selected_shelf_label(self, event):
-        selected_shelf = self.combo_box_value.get()
-        self.selected_shelf_label.config(text=f"Selected Shelf: {selected_shelf}")
+        self.selected_shelf = self.combo_box_value.get()
+        self.selected_shelf_label.config(text=f"Selected Shelf: {self.selected_shelf}")
         
-        if selected_shelf:
-            self.return2.config(state="normal")
-        else:
-            self.return2.config(state="disabled")
+
+    def update_selected_row_label(self, event):
+        selected_row = self.row_value.get()
+        self.selected_row_label.config(text=f"Selected Shelf: {selected_row}")
+
 
     def open_scanner(self):
         selected_shelf = self.combo_box_value.get()
-        if selected_shelf:
+        selected_row = self.row_value.get()
+        if selected_shelf and selected_row:
             self.withdraw()
-            qr_scanner = QRCodeScanner(self.parent_window, selected_shelf)
+            qr_scanner = QRCodeScanner(self.parent_window, selected_shelf, selected_row)
             qr_scanner.show_scanuser_label(self.scanuser)
             self.return2.config(command=qr_scanner.close_window) 
         else:
-            messagebox.showwarning("Warning", "Please select a shelf first.")
+            messagebox.showwarning("Warning", "Please select both shelf and row first.")
 
     def back_to_first_window(self):
         ask_to_proceed = messagebox.askyesno("Confirmation", "Do you want to proceed to the first window?")
