@@ -3,7 +3,7 @@ import os
 from pyzbar.pyzbar import decode
 import requests
 import tkinter as tk
-from tkinter import Label, Button, ttk, messagebox, Canvas, PhotoImage
+from tkinter import Label, Button, ttk, messagebox, Canvas, PhotoImage, font 
 from PIL import Image, ImageTk
 from datetime import datetime, timedelta
 import MySQLdb
@@ -21,12 +21,12 @@ class User:
     def __init__(self, root):
         self.root = root
         self.root.title("Book Library Locator")
-        self.root.geometry("640x480")
+        self.root.geometry("640x410")
         self.root.configure(bg="#ffffff")
         self.canvas = Canvas(
             self.root,
             bg="#ffffff",
-            height=480,
+            height=440,
             width=640,
             bd=0,
             highlightthickness=0,
@@ -35,7 +35,7 @@ class User:
         self.canvas.place(x=0, y=0)
         
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        image_path = os.path.join(script_dir, "user.png")
+        image_path = os.path.join(script_dir, "scaniduser.png")
 
         if os.path.exists(image_path):
             background_img = PhotoImage(file=image_path)
@@ -54,7 +54,7 @@ class User:
             command=self.scanuser_window,
             relief="flat"
         )
-        self.b1.place(x=258, y=225, width=123, height=105)
+        self.b1.place(x=258, y=195, width=103, height=95)
         self.b1.image = img1  
      
     def scanuser_window(self):
@@ -73,20 +73,45 @@ class ScanUser:
         self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 550)  
         self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 400)  
 
-        self.canvas = tk.Canvas(self.window, width=640, height=480)
+        self.canvas = tk.Canvas(self.window, height=440, width=640,)
         self.canvas.pack()
-
+ 
         self.qr_detected = False
         self.scanned_id = ''
+        label_font = font.Font(size=12, family="Arial", weight="bold")
 
-        self.qr_scanid_label = Label(self.window, text="Username: ")
-        self.qr_scanid_label.pack()
+        self.qr_scanid_label = Label(self.window, text="Username: ", font=label_font)
+        self.qr_scanid_label.place(x=190, y=360)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        self.scan_button = Button(self.window, text="Scan ID", command=self.scan_id)
-        self.scan_button.pack()
+        img6 = PhotoImage(file=os.path.join(script_dir, "scanIDpic.png"))
+        self.scanIDpic = Button(
+            self.canvas,
+            image = img6,
+            borderwidth = 0,
+            highlightthickness = 0,
+            command = self.scan_id,
+            relief = "flat")
+        self.scanIDpic.place(x = 144, y = 395, width = 173, height = 44)
+        self.scanIDpic.image=img6
 
-        self.done_button = Button(self.window, text="Done", command=self.done, state="disabled")
-        self.done_button.pack()
+        img7 = PhotoImage(file=os.path.join(script_dir, "Done.png"))
+        self.Done = Button(
+            self.canvas,
+            image = img7,
+            borderwidth = 0,
+            highlightthickness = 0,
+            command = self.done, 
+            state="disabled",
+            relief = "flat")
+        self.Done.place(x = 330, y = 395, width = 173, height = 44)
+        self.Done.image=img7
+
+        # self.scan_button = Button(self.window, text="Scan ID", command=self.scan_id)
+        # self.scan_button.pack()
+
+        # self.done_button = Button(self.window, text="Done", command=self.done, state="disabled")
+        # self.done_button.pack()
 
         self.scanned_id_label = Label(self.window,text=self.scanned_id)
         self.scanned_id_label.pack_forget()
@@ -126,17 +151,21 @@ class ScanUser:
 
                     if not user:
                         messagebox.showwarning("Warning", "Username not found.")
+                        self.qr_scanid_label.config(text="Username: ")
                     
                     else:
+                        messagebox.showinfo("Username", "Successfully logged in")
                         print('Username exists')
-                        self.scan_button.config(state="disabled")
-                        self.done_button.config(state="active")
+                        self.scanIDpic.config(state="disabled")
+                        self.Done.config(state="active")
 
                         
                     cursor.close()
                     connection.close()
 
             except Exception as e:
+                messagebox.showwarning("Warning", "Connection timed out. Try again.")
+                self.qr_scanid_label.config(text="Username:")
                 print("Error fetching data from database:", str(e))
 
 
@@ -199,8 +228,8 @@ class ScanUser:
         else:
             ask_to_scan_again = messagebox.askyesno("Scan Again", "Do you want to scan again?")
             if ask_to_scan_again:
-                self.scan_button.config(state="active")
-                self.done_button.config(state="disabled")
+                self.scanIDpic.config(state="active")
+                self.Done.config(state="disabled")
                 self.scan_id()  
             else:
                 pass  
@@ -229,7 +258,7 @@ class QRCodeScanner:
         self.canvas = tk.Canvas(
             self.window,
             bg="#ffffff",
-            height=480,
+            height=440,
             width=640, 
             relief="ridge"
         )
@@ -305,6 +334,9 @@ class QRCodeScanner:
                 return set(qr_values)
             else:
                 print("Error fetching data from API:", response.text)
+                ok = messagebox.showwarning("Warning", "Connection timed out. Try again.")
+                if ok:
+                    self.open_combobox()
                 return set()
         except Exception as e:
             print("Error fetching data from API:", str(e))
@@ -338,9 +370,11 @@ class QRCodeScanner:
 
 
     def open_combobox(self):
-        self.window.withdraw()
-        MainApplication(self.window)
-       
+        self.window.destroy()
+        parent = self.parent_window if self.parent_window else None
+        print(self.scanuser_str)
+        MainApplication(parent)
+        
     def show_frame(self, frame, decoded_objects):
         for obj in decoded_objects:
             x, y, w, h = obj.rect
@@ -406,8 +440,6 @@ class QRCodeScanner:
                 self.camera.release()
             self.parent_window.deiconify()
             self.update_date_time() 
-
-    
 
 class Borrow:
     def __init__(self, parent_window=None, scanuser_str = None):
@@ -517,6 +549,7 @@ class Borrow:
                             cursor.execute(insert_query, data_to_insert)
                             connection.commit()
                             print('Successfully inserted')
+                            messagebox.showinfo("Success", "Borrowed succesfully.")
 
                         else:
                             messagebox.showwarning("Warning", "Book not found in inventory")
@@ -527,6 +560,7 @@ class Borrow:
 
                 except Exception as e:
                     print("Error fetching data from database:", str(e))
+                    messagebox.showinfo("Try Again", "Connection Timed out. Try again")
                 
                 asktoproceed = messagebox.askyesno("Confirmation", "Scan with the same borrower again?")
                 if asktoproceed:
@@ -608,10 +642,10 @@ class Return:
         self.qr_data_label = Label(self.window, text="QR Code Data: ")
         self.qr_data_label.pack()
 
-        self.borrower_button = Button(self.window, text="Scan Borrower", command=self.borrower_qr_code)
+        self.borrower_button = Button(self.window, text="Scan Borrower", command=self.borrower_qr_code, state="active")
         self.borrower_button.pack()
 
-        self.return_button = Button(self.window, text="Return", command=self.return_qr_code)
+        self.return_button = Button(self.window, text="Return", command=self.return_qr_code, state="disabled")
         self.return_button.pack()
 
         self.back_button = Button(self.window, text="Back to First Window", command=self.back_to_first_window)
@@ -631,7 +665,7 @@ class Return:
     def return_qr_code(self):
         if self.qr_detected:
             self.qr_data_label.config(text=f"QR Code Data: {self.qr_data}")
-            self.strqr = self.qr_data
+            self.strqr = self.qr_data     
         
         try:
             with sshtunnel.SSHTunnelForwarder(
@@ -678,17 +712,19 @@ class Return:
                             cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned Late', self.strqr, self.borrowerqr))
                             connection.commit()
                             print("returned late")
+                            messagebox.showwarning("Warning", "Book is returned late.")
+
                         else:
                             cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned', self.strqr, self.borrowerqr))
                             connection.commit()
                             print("returned")
-
-
+                            messagebox.showinfo("Information", "Successfully returned.")
 
                 cursor.close()
                 connection.close()
 
         except Exception as e:
+            messagebox.showinfo("Try Again", "Connection Timed out. Try again")
             print("Error fetching data from database:", str(e))
 
 
