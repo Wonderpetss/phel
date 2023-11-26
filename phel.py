@@ -5,11 +5,17 @@ import requests
 import tkinter as tk
 from tkinter import Label, Button, ttk, messagebox, Canvas, PhotoImage
 from PIL import Image, ImageTk
-# import pymysql
-import datetime
+from datetime import datetime, timedelta
+import MySQLdb
+import sshtunnel
+
+sshtunnel.SSH_TIMEOUT = 5.0
+sshtunnel.TUNNEL_TIMEOUT = 5.0
+
+current_date = datetime.now()
+formatted_current_date = current_date.strftime('%Y-%m-%d %H:%M:%S')
 
 
-# csrf_token = requests.headers.get('X-CSRFToken')
 
 class User:
     def __init__(self, root):
@@ -55,6 +61,7 @@ class User:
         self.root.withdraw()
         ScanUser(self.root)
 
+
 class ScanUser:
     def __init__(self, parent_window=None):
         self.parent_window = parent_window
@@ -70,28 +77,68 @@ class ScanUser:
         self.canvas.pack()
 
         self.qr_detected = False
-        self.qr_data = ""
+        self.scanned_id = ''
 
-        # self.wow_label = Label(self.window, text="")
-        # self.wow_label.pack_forget()
-
-        self.qr_data_label = Label(self.window, text="Username: ")
-        self.qr_data_label.pack()
+        self.qr_scanid_label = Label(self.window, text="Username: ")
+        self.qr_scanid_label.pack()
 
         self.scan_button = Button(self.window, text="Scan ID", command=self.scan_id)
         self.scan_button.pack()
 
         self.done_button = Button(self.window, text="Done", command=self.done, state="disabled")
         self.done_button.pack()
+
+        self.scanned_id_label = Label(self.window,text=self.scanned_id)
+        self.scanned_id_label.pack_forget()
  
         self.capture_running = True
         self.update()
-        
+    
+    # def open(self):
+    #     qrcodescanner = QRCodeScanner(self.done)
+
+    # def get_scanuser(self):
+    #     return self.scanuser
+
     def scan_id(self):
         if self.qr_detected:
-            self.qr_data_label.config(text=f"Username: {self.qr_data}")
-            self.scan_button.config(state="disabled")
-            self.done_button.config(state="active")
+            self.qr_scanid_label.config(text=f"Username: {self.scanned_id}")
+            self.scanuser = self.scanned_id
+            print(self.scanuser)
+
+            try:
+                with sshtunnel.SSHTunnelForwarder(
+                ('ssh.pythonanywhere.com'),
+                ssh_username='wonderpets', ssh_password='Bo0kLocator!',
+                remote_bind_address=('wonderpets.mysql.pythonanywhere-services.com', 3306)
+            ) as tunnel:
+                    connection = MySQLdb.connect(
+                        user='wonderpets',
+                        passwd='chocolate290',
+                        host='127.0.0.1', port=tunnel.local_bind_port,
+                        db='wonderpets$db_library',
+                    )
+
+                    cursor = connection.cursor()
+
+                    cursor.execute("SELECT username FROM userss WHERE username = %s", (self.scanned_id,))
+                    user = cursor.fetchone()
+
+                    if not user:
+                        messagebox.showwarning("Warning", "Username not found.")
+                    
+                    else:
+                        print('Username exists')
+                        self.scan_button.config(state="disabled")
+                        self.done_button.config(state="active")
+
+                        
+                    cursor.close()
+                    connection.close()
+
+            except Exception as e:
+                print("Error fetching data from database:", str(e))
+
 
     def update(self):
         ret, frame = self.camera.read()
@@ -102,11 +149,10 @@ class ScanUser:
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
                 self.qr_detected = True
-                self.qr_databorrowers = decoded_objects[0].data.decode('utf-8')
-                self.qr_data = decoded_objects[0].data.decode('utf-8')
+                self.scanned_id = decoded_objects[0].data.decode('utf-8')
             else:
                 self.qr_detected = False
-                self.qr_data = ""
+                self.scanned_id = ""
 
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             photo = ImageTk.PhotoImage(image=Image.fromarray(frame))
@@ -135,12 +181,15 @@ class ScanUser:
     
     def open_first_window(self):
         self.window.withdraw()  
-        FirstWindow(self.window)  
+        first_window = FirstWindow(self.window)
+        first_window.show_scanuser_label(self.scanuser)
+    
 
     def done(self):
         asktoproceed = messagebox.askyesno("Confirmation", "Do you want to proceed to the methods windows?")
         
         if asktoproceed:
+            
             #self.window.destroy()
             self.open_first_window()
             self.camera_running = False
@@ -157,10 +206,18 @@ class ScanUser:
                 pass  
 
 class QRCodeScanner:
-    def __init__(self, parent_window=None, selected_shelf=""):
+    def __init__(self, parent_window=None, selected_shelf="", scanuser = None):
         self.parent_window = parent_window
-        self.selected_shelf = selected_shelf  # Store selected shelf
+        self.selected_shelf = selected_shelf
+        self.scanuser = scanuser
 
+        # self.user_instance = ScanUser()
+        # self.scan_user_instance = ScanUser(parent_window=self.parent_window)
+        # # Accessing the scanned_id attribute directly from the instance
+        # self.scanned_id = self.scan_user_instance.get_scanned_id()
+
+        # self.scanned_id= ScanUser.scanned_id
+        
         self.window = tk.Toplevel(parent_window)
         self.window.title("QR Code Scanner")
 
@@ -209,10 +266,32 @@ class QRCodeScanner:
         self.back_button = Button(self.window, text="Back to First Window", command=self.back_to_first_window)
         self.back_button.pack()
 
-        self.qr_values = self.retrieve_data(self.selected_shelf)  # Fetch the QR code data from the API
+        self.qr_values = self.retrieve_data(self.selected_shelf)  
         self.camera_running = True
 
+        self.red_qr_codes = set()
+
         self.update()
+
+        self.start_datetime = datetime.now()
+        self.stop_datetime = None
+
+        self.scanuser_label = Label (self.window, text ="")
+        self.scanuser_label.pack_forget()
+
+    def show_scanuser_label (self, scanuser):
+        self.scanuser_label.config(text=scanuser)
+        self.scanuser_str= str(scanuser)
+        print(self.scanuser_str)
+
+
+    def update_stop_datetime(self):
+        self.stop_datetime = datetime.now()
+
+    def red_codes (self):
+        self.length = len(self.red_qr_codes)
+        a = self.length
+        return a
 
     def retrieve_data(self, selected_shelf):
         try:
@@ -231,6 +310,8 @@ class QRCodeScanner:
             return set()
 
     def update(self):
+        # self.update_date_time()
+
         ret, frame = self.camera.read()
         if ret:
             decoded_objects = decode(frame)
@@ -238,8 +319,11 @@ class QRCodeScanner:
         self.window.after(30, self.update)
 
     def close_window(self):
+        print('wow')
         asktoproceed = messagebox.askyesno("Confirmation", "Done scanning?")
         if asktoproceed:
+            self.update_stop_datetime()
+            self.insert_misplaced()
             ask = messagebox.askyesno("Confirmation", "Scan Again?")
             if ask: 
                 self.camera_running = False
@@ -247,7 +331,12 @@ class QRCodeScanner:
                     self.camera.release()
                 self.open_combobox()
             else:
-                pass
+                self.window.destroy()
+                self.camera_running = False
+                if self.camera.isOpened():
+                    self.camera.release()
+                self.parent_window.deiconify()
+
 
     def open_combobox(self):
         self.window.withdraw()
@@ -264,11 +353,53 @@ class QRCodeScanner:
             else:
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
                 cv2.putText(frame, qr_data, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                self.red_qr_codes.add(qr_data)
+                print(self.red_qr_codes)
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         photo = ImageTk.PhotoImage(image=Image.fromarray(frame))
         self.canvas.create_image(0, 0, image=photo, anchor=tk.NW)
         self.canvas.photo = photo
+
+    def insert_misplaced(self):
+        try:
+            with sshtunnel.SSHTunnelForwarder(
+            ('ssh.pythonanywhere.com'),
+            ssh_username='wonderpets', ssh_password='Bo0kLocator!',
+            remote_bind_address=('wonderpets.mysql.pythonanywhere-services.com', 3306)
+        ) as tunnel:
+                connection = MySQLdb.connect(
+                    user='wonderpets',
+                    passwd='chocolate290',
+                    host='127.0.0.1', port=tunnel.local_bind_port,
+                    db='wonderpets$db_library',
+                )
+
+                cursor = connection.cursor()
+
+                red_code_length = self.red_codes()
+
+                #insert to database
+                insert_query = "INSERT INTO log_read (username, misplaced_books, date_startscan, date_stopscan) VALUES (%s,%s, %s, %s)"
+                data_to_insert = (
+                    self.scanuser_str, 
+                    red_code_length , 
+                    self.start_datetime.strftime('%Y-%m-%d %H:%M:%S'), 
+                    self.stop_datetime.strftime('%Y-%m-%d %H:%M:%S')
+                    ) 
+                cursor.execute(insert_query, data_to_insert)
+                connection.commit()
+                print('Successfully inserted')
+
+                cursor.close()
+                connection.close()
+
+        except Exception as e:
+            print("Error fetching data from database:", str(e))
+
+    # def user_id(self):
+    #     a = ScanUser.scanned_id()
+    #     return a
 
     def back_to_first_window(self):
         asktoproceed = messagebox.askyesno("Confirmation", "Do you want to proceed to the first window?")
@@ -279,10 +410,14 @@ class QRCodeScanner:
             if self.camera.isOpened():
                 self.camera.release()
             self.parent_window.deiconify()
+            self.update_date_time() 
+
+    
 
 class Borrow:
-    def __init__(self, parent_window=None):
+    def __init__(self, parent_window=None, scanuser_str = None):
         self.parent_window = parent_window
+        self.scanuser_str = scanuser_str
 
         self.window = tk.Toplevel(parent_window)
         self.window.title("Borrow")
@@ -319,76 +454,98 @@ class Borrow:
         self.capture_running = True
         self.update()
 
+        self.scanuser_label = Label(self.window, text="")
+        self.scanuser_label.pack_forget()
+    
+    def show_scanuser_label(self, scanuser_str):
+        self.scanuser_label.config(text=scanuser_str)
+        self.scanuser = str(scanuser_str)
+        print(self.scanuser)
+
     def borrower_qr_code(self):
         if self.qr_detected:
             self.qr_borrower_label.config(text=f"Borrower: {self.qr_databorrowers}")
             
-            # Enable the borrow_button and disable the borrower_button
             self.borrow_button.config(state="normal")
             self.borrower_button.config(state="disabled")
-
         
     def borrow_qr_code(self):
-        inventory_url = "http://172.20.10.3:5000/genbooks"
-        logbook_url = "http://172.20.10.3:5000/borrowed_books"
+        return_date = current_date + timedelta(days=3)
+        formatted_return_date = return_date.strftime('%Y-%m-%d %H:%M:%S')
 
         if self.qr_detected:
             self.qr_data_label.config(text=f"QR Code Data: {self.qr_data}")
+            self.strqr = str(self.qr_data)
+            self.borrow_button.config(state="disabled")
 
-            try:
+            asktoproceed = messagebox.askyesno("Confirmation", "Done scanning?") 
+            if asktoproceed:   
+                try:
+                    with sshtunnel.SSHTunnelForwarder(
+                    ('ssh.pythonanywhere.com'),
+                    ssh_username='wonderpets', ssh_password='Bo0kLocator!',
+                    remote_bind_address=('wonderpets.mysql.pythonanywhere-services.com', 3306)
+                ) as tunnel:
+                        connection = MySQLdb.connect(
+                            user='wonderpets',
+                            passwd='chocolate290',
+                            host='127.0.0.1', port=tunnel.local_bind_port,
+                            db='wonderpets$db_library',
+                        )
+
+                        cursor = connection.cursor()
+
+                        print(self.strqr)
+                        #get quantity of the book_id detected
+                        cursor.execute("SELECT quantity FROM gen_books WHERE book_id = %s", (self.strqr,))
+                        cur_quan = cursor.fetchone()
+
+                        if cur_quan:
+                            cur_quan = cur_quan[0]  
+                            new_quan = cur_quan - 1  
+
+                            #update quantity field -subtract 1
+                            cursor.execute("UPDATE gen_books SET quantity = %s WHERE book_id = %s", (new_quan, self.strqr))
+                            connection.commit()
+                            print("Quantity updated successfully!")
+
+                            if new_quan == 0:
+                                cursor.execute("UPDATE gen_books SET availability = %s WHERE book_id = %s", ('not available', self.strqr))
+                                connection.commit()
+                                print("Book not available")
+
+
+                            #insert to database
+                            insert_query = "INSERT INTO borrowed_books (book_id, staff_librarian, borrower, date_borrowed, date_return, status) VALUES (%s,%s,%s, %s, %s, %s)"
+                            data_to_insert = (self.qr_data, self.scanuser, self.qr_databorrowers, formatted_current_date, formatted_return_date, 'Borrowed')  # Define the values to be inserted
+                            cursor.execute(insert_query, data_to_insert)
+                            connection.commit()
+                            print('Successfully inserted')
+
+                        else:
+                            messagebox.showwarning("Warning", "Book not found in inventory")
+
+
+                        cursor.close()
+                        connection.close()
+
+                except Exception as e:
+                    print("Error fetching data from database:", str(e))
                 
-                response = requests.get(inventory_url)
-                if response.status_code == 200:
-                    data = response.json().get('data', [])
-                    token = response.json().get('csrf_token')
-
-                    headers = {
-                    'X-CSRF-Token': token 
-                }
-                    print(headers)
-
-                    if isinstance(data, list) and len(data) > 0:
-                        book_ids = [item.get("book_id") for item in data if "book_id" in item]
-                        print(book_ids)
-
-                        for a in book_ids:
-                            if a == self.qr_data:
-                                print("Match found!")
-
-                                #update quantity
-                                upd_inventory_url = f"http://172.20.10.3:5000/genbooks/{self.qr_data}"
-
-                                print(upd_inventory_url)
-
-                                data_to_update = {
-                                    # "book_id": self.qr_data,
-                                    "quantity": 2
-                                    }  
-                                
-                                update_response = requests.put(upd_inventory_url, json=data_to_update)                         
-                                
-                                #print(update_response)
-                                
-                                # #insert to logbook
-                                # data_to_insert = {
-                                #     'book_id' : self.qr_data,
-                                #     'borrower': self.qr_databorrowers,
-                                #     'status': 'Borrowed'
-                                # }
-
-                                # insert_response = requests.post(logbook_url, json=data_to_insert, headers=headers)
-
-                                # print(insert_response)
-
-                                if update_response.status_code == 200 :
-                                    print("Data updated in table 1 and inserted into table 2 successfully.")
-                                else:
-                                    print("Error updating/inserting data:", update_response)
-                    else:
-                        print("No books found in inventory.")
-
-            except Exception as e:
-                print("Error fetching data from API:", str(e))
+                asktoproceed = messagebox.askyesno("Confirmation", "Scan with the same borrower again?")
+                if asktoproceed:
+                    self.borrow_button.config(state="active")
+                else:
+                    self.window.destroy()
+                    self.camera_running = False
+                    if self.camera.isOpened():
+                        self.camera.release()
+                    self.parent_window.deiconify()       
+            else:
+                asktoproceed = messagebox.askyesno("Confirmation", "Scan the book again?")
+                if asktoproceed:
+                    self.borrow_button.config(state="active")
+                
 
     def update(self):
         ret, frame = self.camera.read()
@@ -471,56 +628,70 @@ class Return:
         if self.qr_detected:
             self.qr_borrower_label.config(text=f"Borrower: {self.qr_databorrowers}")
 
-            self.borrow_button.config(state="normal")
+            self.return_button.config(state="active")
             self.borrower_button.config(state="disabled")
 
     def return_qr_code(self):
         if self.qr_detected:
             self.qr_data_label.config(text=f"QR Code Data: {self.qr_data}")
+        
+        try:
+            with sshtunnel.SSHTunnelForwarder(
+            ('ssh.pythonanywhere.com'),
+            ssh_username='wonderpets', ssh_password='Bo0kLocator!',
+            remote_bind_address=('wonderpets.mysql.pythonanywhere-services.com', 3306)
+        ) as tunnel:
+                connection = MySQLdb.connect(
+                    user='wonderpets',
+                    passwd='chocolate290',
+                    host='127.0.0.1', port=tunnel.local_bind_port,
+                    db='wonderpets$db_library',
+                )
 
-            try:
-                inventory_url = "http://192.168.2.4:5000/gen_books"
-                logbook_url = "http://192.168.2.4:5000/borrowed_books"
-                current_datetime = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                cursor = connection.cursor()
 
-                response = requests.get(logbook_url)
-                
-                if response.status_code == 200:
-                    data = response.json() 
+                #get quantity of the book_id detected
+                cursor.execute("SELECT quantity FROM gen_books WHERE book_id = %s", (self.qr_data,))
+                cur_quan = cursor.fetchone()
 
-                    if isinstance(data, list) and len(data) > 0:
-                        book_ids = [item.get("book_id") for item in data if "book_id" in item]
-                        # dateborrowed = [item.get("date_borrowed") for item in data if "data_borrowed" in item] 
-                        mustreturndate = [item.get("date_return") for item in data if "date_return" in item] 
-                        borrower = [item.get("borrower") for item in data if "borrower" in item] 
-                        print(book_ids)
+                if cur_quan:
+                    cur_quan = cur_quan[0]  
+                    new_quan = cur_quan + 1  
 
-                        for a, b in zip(borrower, book_ids):
-                            if a == self.qr_databorrowers and b == self.qr_data:
-                                data_to_update = {
-                                    'quantity': 'quantity + 1'
-                                }
-                                update_response = requests.put(inventory_url, json=data_to_update)
+                    #update quantity field -subtract 1
+                    cursor.execute("UPDATE gen_books SET quantity = %s WHERE book_id = %s", (new_quan, self.qr_data))
+                    connection.commit()
+                    print("Quantity updated successfully!")
 
-                        for a in mustreturndate:
-                            if a <= current_datetime:
-                                data_to_update1 = {
-                                    'status': 'Returned'
-                                }
-                            else:
-                                data_to_update1 = {
-                                    'status': 'Returned Late'
-                                }
+                    if new_quan > 0:
+                        cursor.execute("UPDATE gen_books SET availability = %s WHERE book_id = %s", ('available', self.qr_data))
+                        connection.commit()
+                        print("Book available")
 
-                                update1_response = requests.put(logbook_url, json=data_to_update1)
+                    #get date_return based from the macthed book_id and borrower detected
+                    cursor.execute("SELECT date_return FROM borrowed_books WHERE book_id = %s and borrower = %s", (self.qr_data,self.qr_databorrowers))
+                    cur_datereturn = cursor.fetchone()
 
-                    if update_response.status_code == 200 and update1_response.status_code == 200:
-                        print("Data updated in table 1 and inserted into table 2 successfully.")
-                    else:
-                        print("Error updating data:", update_response.text, update1_response.text)
+                    if cur_datereturn:
+                        cur_datereturn = cur_datereturn[0]
 
-            except Exception as e:
-                print("Error fetching data from API:", str(e))
+                        if current_date > cur_datereturn:
+                            #update borrowed_books
+                            cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned Late', self.qr_data, self.qr_databorrowers))
+                            connection.commit()
+                            print("returned late")
+                        else:
+                            cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned', self.qr_data, self.qr_databorrowers))
+                            connection.commit()
+                            print("returned")
+
+
+
+                cursor.close()
+                connection.close()
+
+        except Exception as e:
+            print("Error fetching data from database:", str(e))
 
 
     def update(self):
@@ -565,13 +736,17 @@ class Return:
             self.parent_window.deiconify()
 
 class FirstWindow:
-    def __init__(self, parent_window=None):
+    def __init__(self, parent_window=None, scanuser=None):
         self.parent_window = parent_window
         self.window = tk.Toplevel(parent_window) 
         self.window.title("First Window")
         self.window.geometry("640x480")
         self.window.configure(bg="#ffffff")
-        
+
+        self.scanuser = scanuser
+        # self.scanuser_string = str(self.scanuser)  # Convert scanuser to string
+        # print(self.scanuser_string)
+
         self.canvas = Canvas(
             self.window,
             bg="#ffffff",
@@ -640,20 +815,32 @@ class FirstWindow:
         self.b3.place(x=258, y=350, width=123, height=25)
         self.b3.image= img3
 
+        self.scanuser_label = Label(self.window, text="")
+        self.scanuser_label.pack()
+    
+    def show_scanuser_label(self, scanuser):
+        self.scanuser_label.config(text=scanuser)
+        self.scanuser_string = str(scanuser)
+        print(self.scanuser_string)
+
     def open_second_window(self):
         self.window.withdraw()
-        MainApplication(self.window)
+        # scanuser_text = self.show_scanuser_label(self.scanuser_string)
+        # print("Scan User in First Window:", scanuser_text)
+        main_app = MainApplication(self.window)
+        main_app.show_scanuser_label(self.scanuser_string)
 
     def open_pers_window(self):
         self.window.withdraw()
-        Borrow(self.window)
+        borrow_app = Borrow(self.window)
+        borrow_app.show_scanuser_label(self.scanuser_string)
 
     def open_third_window(self):
         self.window.withdraw()
         Return(self.window)
 
     def scan_user_window(self):
-        asktoproceed = messagebox.askyesno("Confirmation", "Do you want to proceed to scan user again?")
+        asktoproceed = messagebox.askyesno("Confirmation", "Are you sure you want to log out?")
         
         if asktoproceed:
             self.window.withdraw()
@@ -662,12 +849,20 @@ class FirstWindow:
             User(user_window)
 
 class MainApplication(tk.Toplevel):
-    def __init__(self, parent_window):
+    def __init__(self, parent_window, scanuser_str=None):
         self.parent_window = parent_window
         super().__init__(parent_window)
         self.title("Main Application")
         self.geometry("640x480")
         self.configure(bg="#ffffff")
+
+        self.scanuser_str = scanuser_str
+        # #  self.scanuser = scanuser
+        # print("Scan User in Main Application:", self.scanuser)
+
+        # Call show_scanuser_label after initializing scanuser
+        # self.show_scanuser_label()
+
         self.canvas = Canvas(
             self,
             bg="#ffffff",
@@ -678,7 +873,7 @@ class MainApplication(tk.Toplevel):
             relief="ridge"
         )
         self.canvas.place(x=0, y=0)
-        
+
         script_dir = os.path.dirname(os.path.abspath(__file__))
         image_path = os.path.join(script_dir, "combobox.png")
 
@@ -701,13 +896,13 @@ class MainApplication(tk.Toplevel):
 
         self.Home.place(x = 80, y = 145, width = 40, height = 39)
         self.Home.image=imgHome
-        self.combo_box_value = tk.StringVar()  # Variable to store the combo box value
+        self.combo_box_value = tk.StringVar()  
 
         self.combo_box = ttk.Combobox(
             self, 
-            values=["shelf1", "shelf2", "shelf3"],
+            values=["shelf01", "shelf02", "shelf03"],
             textvariable=self.combo_box_value,
-            font=("Arial", 14), # Adjust the font family and size as needed
+            font=("Arial", 14),
             state="readonly",
 )
         self.combo_box.place(x=170, y=180, width=297, height=39)
@@ -730,11 +925,19 @@ class MainApplication(tk.Toplevel):
         self.selected_shelf_label = Label(self, text="Selected Shelf: None")
         self.selected_shelf_label.pack_forget()
 
+        self.scanuser_label = Label(self, text="")
+        self.scanuser_label.pack_forget()
+
+    def show_scanuser_label(self, scanuser_str):
+        self.scanuser_label.config(text=scanuser_str)
+        self.scanuser= str(scanuser_str)
+        print(self.scanuser)
+
+
     def update_selected_shelf_label(self, event):
         selected_shelf = self.combo_box_value.get()
         self.selected_shelf_label.config(text=f"Selected Shelf: {selected_shelf}")
         
-        # Enable the "Open Scanner" button if a shelf is selected
         if selected_shelf:
             self.return2.config(state="normal")
         else:
@@ -742,9 +945,11 @@ class MainApplication(tk.Toplevel):
 
     def open_scanner(self):
         selected_shelf = self.combo_box_value.get()
-        if selected_shelf:  # Only proceed if a shelf is selected
+        if selected_shelf:
             self.withdraw()
-            QRCodeScanner(self.parent_window, selected_shelf)  # Pass selected_shelf to QRCodeScanner
+            qr_scanner = QRCodeScanner(self.parent_window, selected_shelf)
+            qr_scanner.show_scanuser_label(self.scanuser)
+            self.return2.config(command=qr_scanner.close_window) 
         else:
             messagebox.showwarning("Warning", "Please select a shelf first.")
 
@@ -754,7 +959,14 @@ class MainApplication(tk.Toplevel):
             self.destroy()
             self.parent_window.deiconify()
 
+
 if __name__ == '__main__':
     root = tk.Tk()
     app = User(root)  
     root.mainloop()
+
+
+
+# scan_user_instance = ScanUser()
+# scanned_id = scan_user_instance.get_scanned_id()
+# print(scanned_id)
