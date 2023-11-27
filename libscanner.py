@@ -4,6 +4,7 @@ from pyzbar.pyzbar import decode
 import requests
 import tkinter as tk
 from tkinter import Label, Button, ttk, messagebox, Canvas, PhotoImage, font 
+from tkinter.font import Font
 from PIL import Image, ImageTk
 from datetime import datetime, timedelta
 import MySQLdb
@@ -14,7 +15,6 @@ sshtunnel.TUNNEL_TIMEOUT = 5.0
 
 current_date = datetime.now()
 formatted_current_date = current_date.strftime('%Y-%m-%d %H:%M:%S')
-
 
 
 class User:
@@ -82,8 +82,9 @@ class ScanUser:
 
         self.qr_scanid_label = Label(self.window, text="Username: ", font=label_font)
         self.qr_scanid_label.place(x=190, y=360)
+        
         script_dir = os.path.dirname(os.path.abspath(__file__))
-
+        #scan id button
         img6 = PhotoImage(file=os.path.join(script_dir, "scanIDpic.png"))
         self.scanIDpic = Button(
             self.canvas,
@@ -94,7 +95,8 @@ class ScanUser:
             relief = "flat")
         self.scanIDpic.place(x = 144, y = 395, width = 173, height = 44)
         self.scanIDpic.image=img6
-
+        
+        #done button
         img7 = PhotoImage(file=os.path.join(script_dir, "Done.png"))
         self.Done = Button(
             self.canvas,
@@ -107,23 +109,11 @@ class ScanUser:
         self.Done.place(x = 330, y = 395, width = 173, height = 44)
         self.Done.image=img7
 
-        # self.scan_button = Button(self.window, text="Scan ID", command=self.scan_id)
-        # self.scan_button.pack()
-
-        # self.done_button = Button(self.window, text="Done", command=self.done, state="disabled")
-        # self.done_button.pack()
-
         self.scanned_id_label = Label(self.window,text=self.scanned_id)
         self.scanned_id_label.pack_forget()
  
         self.capture_running = True
         self.update()
-    
-    # def open(self):
-    #     qrcodescanner = QRCodeScanner(self.done)
-
-    # def get_scanuser(self):
-    #     return self.scanuser
 
     def scan_id(self):
         if self.qr_detected:
@@ -218,13 +208,10 @@ class ScanUser:
         asktoproceed = messagebox.askyesno("Confirmation", "Do you want to proceed to the methods windows?")
         
         if asktoproceed:
-            
-            #self.window.destroy()
-            self.open_first_window()
             self.camera_running = False
             if self.camera.isOpened():
                 self.camera.release()
-            #self.parent_window.deiconify()
+            self.open_first_window()
         else:
             ask_to_scan_again = messagebox.askyesno("Scan Again", "Do you want to scan again?")
             if ask_to_scan_again:
@@ -240,13 +227,6 @@ class QRCodeScanner:
         self.selected_shelf = selected_shelf
         self.selected_row = selected_row
         self.scanuser = scanuser
-
-        # self.user_instance = ScanUser()
-        # self.scan_user_instance = ScanUser(parent_window=self.parent_window)
-        # # Accessing the scanned_id attribute directly from the instance
-        # self.scanned_id = self.scan_user_instance.get_scanned_id()
-
-        # self.scanned_id= ScanUser.scanned_id
         
         self.window = tk.Toplevel(parent_window)
         self.window.title("QR Code Scanner")
@@ -265,20 +245,19 @@ class QRCodeScanner:
         self.canvas.place(x=0, y=0)
         self.canvas.pack()
 
-
         self.results_label = Label(self.window, text="Scanning QR codes...")
-        self.results_label.place(x =260 , y = 400)
-        self.combo_box_value = tk.StringVar()  # Variable to store the selected combo box value
-
-        # Create a label to display the combo box value
+        self.results_label.pack_forget
+        self.combo_box_value = tk.StringVar() 
+        self.row_value = tk.StringVar()
+     
         self.combo_box_label = Label(self.window, textvariable=self.combo_box_value)
-        self.combo_box_label.pack()
+        self.combo_box_label.pack_forget()
         
-        self.selected_shelf_label = Label(self.window, text=f"Selected Shelf: {self.selected_shelf}")  # Display selected shelf
+        self.selected_shelf_label = Label(self.window, text=f"Selected Shelf: {self.selected_shelf}")  
         self.selected_shelf_label.pack_forget()
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        img5 = PhotoImage(file=os.path.join(script_dir, "stopCam.png"))
+        img5 = PhotoImage(file=os.path.join(script_dir, "StopCam.png"))
         self.stopCam = Button(
             self.canvas,
             image=img5,
@@ -287,14 +266,27 @@ class QRCodeScanner:
             command=self.close_window,
             relief="flat"
         )
-        self.stopCam.place(x =200 , y = 450, width = 232, height = 30)
-        self.stopCam.image=img5    
-       
-        self.stop_button = Button(self.window, text="Stop Camera", command=self.close_window)
-        self.stop_button.pack()
+        self.stopCam.place(x =200 , y = 380, width = 250, height = 60)
+        self.stopCam.image=img5   
 
-        self.back_button = Button(self.window, text="Back to First Window", command=self.back_to_first_window)
-        self.back_button.pack()
+        #home button
+        imgH = PhotoImage(file=os.path.join(script_dir, "Homie.png"))
+        self.Homie = Button(
+            self.canvas,
+            image=imgH,
+            borderwidth=0,
+            highlightthickness=0,
+            command=self.back_to_first_window,
+            relief="flat"
+        )
+        self.Homie.place(x =10 , y = 390, width = 30, height = 23)
+        self.Homie.image=imgH  
+       
+        # self.stop_button = Button(self.window, text="Stop Camera", command=self.close_window)
+        # self.stop_button.pack()
+
+        # self.back_button = Button(self.window, text="Back to First Window", command=self.back_to_first_window)
+        # self.back_button.pack()
 
         self.qr_values = self.retrieve_data(self.selected_shelf, self.selected_row)  
         self.camera_running = True
@@ -313,7 +305,6 @@ class QRCodeScanner:
         self.scanuser_label.config(text=scanuser)
         self.scanuser_str= str(scanuser)
         print(self.scanuser_str)
-
 
     def update_stop_datetime(self):
         self.stop_datetime = datetime.now()
@@ -350,7 +341,6 @@ class QRCodeScanner:
         self.window.after(30, self.update)
 
     def close_window(self):
-        print('wow')
         asktoproceed = messagebox.askyesno("Confirmation", "Done scanning?")
         if asktoproceed:
             self.update_stop_datetime()
@@ -367,7 +357,6 @@ class QRCodeScanner:
                 if self.camera.isOpened():
                     self.camera.release()
                 self.parent_window.deiconify()
-
 
     def open_combobox(self):
         self.window.destroy()
@@ -453,7 +442,7 @@ class Borrow:
         self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 550)  
         self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 400)  
 
-        self.canvas = tk.Canvas(self.window, width=640, height=480)
+        self.canvas = tk.Canvas(self.window, width=640, height=440)
         self.canvas.pack()
 
         self.qr_detected = False
@@ -462,21 +451,51 @@ class Borrow:
 
         self.wow_label = Label(self.window, text="")
         self.wow_label.pack_forget()
+        custom_font = Font(size=13)
 
-        self.qr_borrower_label = Label(self.window, text="Borrower:")
-        self.qr_borrower_label.pack()
+        self.qr_borrower_label = Label(self.window, text="Borrower:", font=custom_font)
+        self.qr_borrower_label.place(x=90, y=370)
 
-        self.qr_data_label = Label(self.window, text="QR Code Data: ")
-        self.qr_data_label.pack()
+        self.qr_data_label = Label(self.window, text="Borrow Book: ", font=custom_font)
+        self.qr_data_label.place(x=90, y=400)
 
-        self.borrower_button = Button(self.window, text="Scan Borrower", command=self.borrower_qr_code)
-        self.borrower_button.pack()
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        imgbook = PhotoImage(file=os.path.join(script_dir, "BorrowerLogo.png"))
+        self.ScanBorrower = Button(
+            self.canvas,
+            image = imgbook,
+            borderwidth = 0,
+            highlightthickness = 0,
+            command = self.borrower_qr_code,
+            relief = "flat")
+        self.ScanBorrower.place(x = 310, y = 360, width = 158, height = 75)
+        self.ScanBorrower.image=imgbook
 
-        self.borrow_button = Button(self.window, text="Scan Borrowed Book", command=self.borrow_qr_code, state="disabled")
-        self.borrow_button.pack()
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        imgbook2 = PhotoImage(file=os.path.join(script_dir, "BorrowLogo.png"))
+        self.BookBorrow = Button(
+            self.canvas,
+            image = imgbook2,
+            borderwidth = 0,
+            highlightthickness = 0,
+            command = self.borrow_qr_code,
+            relief = "flat")
+        self.BookBorrow.place(x = 481, y = 360, width = 158, height = 75)
+        self.BookBorrow.image=imgbook2      
 
-        self.back_button = Button(self.window, text="Back to First Window", command=self.back_to_first_window)
-        self.back_button.pack()
+        imgH = PhotoImage(file=os.path.join(script_dir, "Homie.png"))
+        self.Homie = Button(
+            self.canvas,
+            image=imgH,
+            borderwidth=0,
+            highlightthickness=0,
+            command=self.back_to_first_window,
+            relief="flat"
+        )
+        self.Homie.place(x =10 , y = 390, width = 30, height = 23)
+        self.Homie.image=imgH       
 
         self.capture_running = True
         self.update()
@@ -494,17 +513,17 @@ class Borrow:
             self.qr_borrower_label.config(text=f"Borrower: {self.qr_databorrowers}")
             self.borrowersqr = str(self.qr_databorrowers)
             
-            self.borrow_button.config(state="normal")
-            self.borrower_button.config(state="disabled")
+            self.BookBorrow.config(state="normal")
+            self.ScanBorrower.config(state="disabled")
         
     def borrow_qr_code(self):
         return_date = current_date + timedelta(days=3)
         formatted_return_date = return_date.strftime('%Y-%m-%d %H:%M:%S')
 
         if self.qr_detected:
-            self.qr_data_label.config(text=f"QR Code Data: {self.qr_data}")
+            self.qr_data_label.config(text=f"Borrow Book: {self.qr_data}")
             self.strqr = str(self.qr_data)
-            self.borrow_button.config(state="disabled")
+            self.BookBorrow.config(state="disabled")
 
             asktoproceed = messagebox.askyesno("Confirmation", "Done scanning?") 
             if asktoproceed:   
@@ -564,17 +583,16 @@ class Borrow:
                 
                 asktoproceed = messagebox.askyesno("Confirmation", "Scan with the same borrower again?")
                 if asktoproceed:
-                    self.borrow_button.config(state="active")
+                    self.BookBorrow.config(state="active")
                 else:
-                    self.window.destroy()
-                    self.camera_running = False
-                    if self.camera.isOpened():
-                        self.camera.release()
-                    self.parent_window.deiconify()       
+                    self.qr_borrower_label.config(text=f"Borrower: ")
+                    self.qr_data_label.config(text=f"Borrow Book: ")
+                    self.BookBorrow.config(state="disabled")
+                    self.ScanBorrower.config(state="active")
             else:
                 asktoproceed = messagebox.askyesno("Confirmation", "Scan the book again?")
                 if asktoproceed:
-                    self.borrow_button.config(state="active")
+                    self.BookBorrow.config(state="active")
                 
 
     def update(self):
@@ -629,27 +647,57 @@ class Return:
         self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 550)
         self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 400)
 
-        self.canvas = tk.Canvas(self.window, width=640, height=480)
+        self.canvas = tk.Canvas(self.window, width=640, height=440)
         self.canvas.pack()
 
         self.qr_detected = False
         self.qr_databorrowers = "" 
         self.qr_data = ""
+        custom_font = Font(size=13)
 
-        self.qr_borrower_label = Label(self.window, text="Borrower:")
-        self.qr_borrower_label.pack()
+        self.qr_borrower_label = Label(self.window, text="Borrower:", font=custom_font)
+        self.qr_borrower_label.place(x=90, y=370)
 
-        self.qr_data_label = Label(self.window, text="QR Code Data: ")
-        self.qr_data_label.pack()
+        self.qr_data_label = Label(self.window, text="Return Book: ", font=custom_font)
+        self.qr_data_label.place(x=90, y=400)
 
-        self.borrower_button = Button(self.window, text="Scan Borrower", command=self.borrower_qr_code, state="active")
-        self.borrower_button.pack()
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        imgbook = PhotoImage(file=os.path.join(script_dir, "BorrowerLogo.png"))
+        self.ScanBorrower = Button(
+            self.canvas,
+            image = imgbook,
+            borderwidth = 0,
+            highlightthickness = 0,
+            command = self.borrower_qr_code,
+            relief = "flat")
+        self.ScanBorrower.place(x = 310, y = 360, width = 158, height = 75)
+        self.ScanBorrower.image=imgbook
 
-        self.return_button = Button(self.window, text="Return", command=self.return_qr_code, state="disabled")
-        self.return_button.pack()
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        imgbook2 = PhotoImage(file=os.path.join(script_dir, "ReturnLogo.png"))
+        self.BookBorrow = Button(
+            self.canvas,
+            image = imgbook2,
+            borderwidth = 0,
+            highlightthickness = 0,
+            command = self.return_qr_code,
+            relief = "flat")
+        self.BookBorrow.place(x = 481, y = 360, width = 158, height = 75)
+        self.BookBorrow.image=imgbook2  
 
-        self.back_button = Button(self.window, text="Back to First Window", command=self.back_to_first_window)
-        self.back_button.pack()
+        imgH = PhotoImage(file=os.path.join(script_dir, "Homie.png"))
+        self.Homie = Button(
+            self.canvas,
+            image=imgH,
+            borderwidth=0,
+            highlightthickness=0,
+            command=self.back_to_first_window,
+            relief="flat"
+        )
+        self.Homie.place(x =10 , y = 390, width = 30, height = 23)
+        self.Homie.image=imgH      
 
         self.capture_running = True
         self.update()
@@ -659,74 +707,90 @@ class Return:
             self.qr_borrower_label.config(text=f"Borrower: {self.qr_databorrowers}")
             self.borrowerqr = self.qr_databorrowers
 
-            self.return_button.config(state="active")
-            self.borrower_button.config(state="disabled")
+            self.BookBorrow.config(state="active")
+            self.ScanBorrower.config(state="disabled")
 
     def return_qr_code(self):
         if self.qr_detected:
-            self.qr_data_label.config(text=f"QR Code Data: {self.qr_data}")
-            self.strqr = self.qr_data     
-        
-        try:
-            with sshtunnel.SSHTunnelForwarder(
-            ('ssh.pythonanywhere.com'),
-            ssh_username='wonderpets', ssh_password='Bo0kLocator!',
-            remote_bind_address=('wonderpets.mysql.pythonanywhere-services.com', 3306)
-        ) as tunnel:
-                connection = MySQLdb.connect(
-                    user='wonderpets',
-                    passwd='chocolate290',
-                    host='127.0.0.1', port=tunnel.local_bind_port,
-                    db='wonderpets$db_library',
-                )
+            self.qr_data_label.config(text=f"Return Book: {self.qr_data}")
+            self.strqr = self.qr_data
 
-                cursor = connection.cursor()
+            asktoproceed = messagebox.askyesno("Confirmation", "Done scanning?") 
+            if asktoproceed:  
+                try:
+                    with sshtunnel.SSHTunnelForwarder(
+                    ('ssh.pythonanywhere.com'),
+                    ssh_username='wonderpets', ssh_password='Bo0kLocator!',
+                    remote_bind_address=('wonderpets.mysql.pythonanywhere-services.com', 3306)
+                ) as tunnel:
+                        connection = MySQLdb.connect(
+                            user='wonderpets',
+                            passwd='chocolate290',
+                            host='127.0.0.1', port=tunnel.local_bind_port,
+                            db='wonderpets$db_library',
+                        )
 
-                #get quantity of the book_id detected
-                cursor.execute("SELECT quantity FROM gen_books WHERE book_id = %s", (self.strqr,))
-                cur_quan = cursor.fetchone()
+                        cursor = connection.cursor()
 
-                if cur_quan:
-                    cur_quan = cur_quan[0]  
-                    new_quan = cur_quan + 1  
+                        #get quantity of the book_id detected
+                        cursor.execute("SELECT quantity FROM gen_books WHERE book_id = %s", (self.strqr,))
+                        cur_quan = cursor.fetchone()
 
-                    #update quantity field -subtract 1
-                    cursor.execute("UPDATE gen_books SET quantity = %s WHERE book_id = %s", (new_quan, self.strqr))
-                    connection.commit()
-                    print("Quantity updated successfully!")
+                        if cur_quan:
+                            cur_quan = cur_quan[0]  
+                            new_quan = cur_quan + 1  
 
-                    if new_quan > 0:
-                        cursor.execute("UPDATE gen_books SET availability = %s WHERE book_id = %s", ('available', self.strqr))
-                        connection.commit()
-                        print("Book available")
-
-                    #get date_return based from the macthed book_id and borrower detected
-                    cursor.execute("SELECT date_return FROM borrowed_books WHERE book_id = %s and borrower = %s", (self.strqr,self.borrowerqr))
-                    cur_datereturn = cursor.fetchone()
-
-                    if cur_datereturn:
-                        cur_datereturn = cur_datereturn[0]
-
-                        if current_date > cur_datereturn:
-                            #update borrowed_books
-                            cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned Late', self.strqr, self.borrowerqr))
+                            #update quantity field -subtract 1
+                            cursor.execute("UPDATE gen_books SET quantity = %s WHERE book_id = %s", (new_quan, self.strqr))
                             connection.commit()
-                            print("returned late")
-                            messagebox.showwarning("Warning", "Book is returned late.")
+                            print("Quantity updated successfully!")
 
-                        else:
-                            cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned', self.strqr, self.borrowerqr))
-                            connection.commit()
-                            print("returned")
-                            messagebox.showinfo("Information", "Successfully returned.")
+                            if new_quan > 0:
+                                cursor.execute("UPDATE gen_books SET availability = %s WHERE book_id = %s", ('available', self.strqr))
+                                connection.commit()
+                                print("Book available")
 
-                cursor.close()
-                connection.close()
+                            #get date_return based from the macthed book_id and borrower detected
+                            cursor.execute("SELECT date_return FROM borrowed_books WHERE book_id = %s and borrower = %s", (self.strqr,self.borrowerqr))
+                            cur_datereturn = cursor.fetchone()
 
-        except Exception as e:
-            messagebox.showinfo("Try Again", "Connection Timed out. Try again")
-            print("Error fetching data from database:", str(e))
+                            if cur_datereturn:
+                                cur_datereturn = cur_datereturn[0]
 
+                                if current_date > cur_datereturn:
+                                    #update borrowed_books
+                                    cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned Late', self.strqr, self.borrowerqr))
+                                    connection.commit()
+                                    print("returned late")
+                                    messagebox.showwarning("Warning", "Book is returned late.")
+
+                                else:
+                                    cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned', self.strqr, self.borrowerqr))
+                                    connection.commit()
+                                    print("returned")
+                                    messagebox.showinfo("Information", "Successfully returned.")
+                                   
+
+                        cursor.close()
+                        connection.close()
+
+                except Exception as e:
+                    messagebox.showinfo("Try Again", "Connection Timed out. Try again")
+                    print("Error fetching data from database:", str(e))
+                
+                asktoproceed = messagebox.askyesno("Confirmation", "Scan with the same borrower again?")
+                if asktoproceed:
+                    self.BookBorrow.config(state="active")
+                else:
+                    self.qr_borrower_label.config(text=f"Borrower: ")
+                    self.qr_data_label.config(text=f"Return Book: ")
+                    self.BookBorrow.config(state="disabled")
+                    self.ScanBorrower.config(state="active")
+            else:
+                asktoproceed = messagebox.askyesno("Confirmation", "Scan the book again?")
+                if asktoproceed:
+                    self.BookBorrow.config(state="active")
+                
 
     def update(self):
         ret, frame = self.camera.read()
@@ -774,17 +838,15 @@ class FirstWindow:
         self.parent_window = parent_window
         self.window = tk.Toplevel(parent_window) 
         self.window.title("First Window")
-        self.window.geometry("640x480")
+        self.window.geometry("640x410")
         self.window.configure(bg="#ffffff")
 
         self.scanuser = scanuser
-        # self.scanuser_string = str(self.scanuser)  # Convert scanuser to string
-        # print(self.scanuser_string)
 
         self.canvas = Canvas(
             self.window,
             bg="#ffffff",
-            height=480,
+            height=440,
             width=640,
             bd=0,
             highlightthickness=0,
@@ -793,7 +855,7 @@ class FirstWindow:
         self.canvas.place(x=0, y=0)
         
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        image_path = os.path.join(script_dir, "method.png")
+        image_path = os.path.join(script_dir, "selectmethod.png")
 
         if os.path.exists(image_path):
             background_img = PhotoImage(file=image_path)
@@ -810,7 +872,7 @@ class FirstWindow:
             command=self.open_second_window,
             relief="flat"
         )
-        self.b0.place(x=115, y=220, width=123, height=105)
+        self.b0.place(x=115, y=185, width=123, height=105)
         self.b0.image = img0  
 
         img1 = PhotoImage(file=os.path.join(script_dir, "img1.png"))
@@ -822,7 +884,7 @@ class FirstWindow:
             command=self.open_pers_window,
             relief="flat"
         )
-        self.b1.place(x=258, y=220, width=123, height=105)
+        self.b1.place(x=258, y=185, width=123, height=105)
         self.b1.image = img1  
 
         img2 = PhotoImage(file=os.path.join(script_dir, "img2.png"))
@@ -834,7 +896,7 @@ class FirstWindow:
             command=self.open_third_window,
             relief="flat"
         )
-        self.b2.place(x=400, y=220, width=123, height=105)
+        self.b2.place(x=400, y=185, width=123, height=105)
         self.b2.image= img2
 
         img3 = PhotoImage(file=os.path.join(script_dir, "img3.png"))
@@ -846,21 +908,25 @@ class FirstWindow:
             command=self.scan_user_window,
             relief="flat"
         )
-        self.b3.place(x=258, y=350, width=123, height=25)
+        self.b3.place(x=270, y=310, width=98, height=25)
         self.b3.image= img3
 
         self.scanuser_label = Label(self.window, text="")
-        self.scanuser_label.pack()
+        self.scanuser_label.pack_forget()
     
     def show_scanuser_label(self, scanuser):
-        self.scanuser_label.config(text=f"Welcome, {scanuser}")
+        self.scanuser_label.config(
+            text=f"Welcome, {scanuser}",
+            font=("Arial", 13, "bold"),
+            highlightthickness=0, 
+            highlightbackground=self.window.cget("bg")
+        )
+        self.scanuser_label.place(x=78, y=74)
         self.scanuser_string = str(scanuser)
         print(self.scanuser_string)
 
     def open_second_window(self):
         self.window.withdraw()
-        # scanuser_text = self.show_scanuser_label(self.scanuser_string)
-        # print("Scan User in First Window:", scanuser_text)
         main_app = MainApplication(self.window)
         main_app.show_scanuser_label(self.scanuser_string)
 
@@ -887,20 +953,15 @@ class MainApplication(tk.Toplevel):
         self.parent_window = parent_window
         super().__init__(parent_window)
         self.title("Main Application")
-        self.geometry("640x480")
+        self.geometry("640x410")
         self.configure(bg="#ffffff")
 
         self.scanuser_str = scanuser_str
-        # #  self.scanuser = scanuser
-        # print("Scan User in Main Application:", self.scanuser)
-
-        # Call show_scanuser_label after initializing scanuser
-        # self.show_scanuser_label()
 
         self.canvas = Canvas(
             self,
             bg="#ffffff",
-            height=480,
+            height=440,
             width=640,
             bd=0,
             highlightthickness=0,
@@ -909,12 +970,11 @@ class MainApplication(tk.Toplevel):
         self.canvas.place(x=0, y=0)
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        image_path = os.path.join(script_dir, "combobox.png")
+        image_path = os.path.join(script_dir, "mainapp.png")
 
         if os.path.exists(image_path):
             background_img = PhotoImage(file=image_path)
             
-            # Try displaying the image on a label for testing
             label = Label(self.canvas, image=background_img, bd=0, highlightthickness=0)
             label.place(x=0, y=-25, relwidth=1, relheight=1)
             label.image = background_img
@@ -928,11 +988,22 @@ class MainApplication(tk.Toplevel):
             command = self.back_to_first_window,
             relief = "flat")
 
-        self.Home.place(x = 80, y = 145, width = 40, height = 39)
+        self.Home.place(x = 80, y = 108, width = 40, height = 39)
         self.Home.image=imgHome
         self.combo_box_value = tk.StringVar()  
         self.row_value = tk.StringVar() 
 
+        self.combo_box = ttk.Combobox(
+            self, 
+            values=["shelf01", "shelf02", "shelf03", "shelf04", "shelf05", "shelf06",
+                    "shelf07", "shelf08", "shelf09", "shelf10", "shelf11", "shelf12",
+                    "shelf13", "shelf14", "shelf15"],
+            textvariable=self.combo_box_value,
+            font=("Arial", 14),
+            state="readonly",
+)
+        self.combo_box.place(x=140, y=150, width=150, height=39)
+        
         self.row = ttk.Combobox(
             self, 
             values=["R-1", "R-2", "R-3", "R-4", "R-5"],
@@ -940,18 +1011,9 @@ class MainApplication(tk.Toplevel):
             font=("Arial", 14),
             state="readonly",
 )
-        self.row.place(x=170, y=160, width=297, height=39)
-
-        self.combo_box = ttk.Combobox(
-            self, 
-            values=["shelf01", "shelf02", "shelf03"],
-            textvariable=self.combo_box_value,
-            font=("Arial", 14),
-            state="readonly",
-)
-        self.combo_box.place(x=170, y=210, width=297, height=39)
+        self.row.place(x=347, y=150, width=150, height=39)
         
-        img4 = PhotoImage(file=os.path.join(script_dir, "return.png"))
+        img4 = PhotoImage(file=os.path.join(script_dir, "BroBro.png"))
         self.return2 = Button(
             self.canvas,
             image=img4,
@@ -960,7 +1022,7 @@ class MainApplication(tk.Toplevel):
             command=self.open_scanner,
             relief="flat"
         )
-        self.return2.place(x=270, y=250, width=100, height=90)
+        self.return2.place(x=270, y=220, width=100, height=90)
         self.return2.image=img4
         
         self.combo_box.bind("<<ComboboxSelected>>", self.update_selected_shelf_label)
@@ -1015,8 +1077,3 @@ if __name__ == '__main__':
     app = User(root)  
     root.mainloop()
 
-
-
-# scan_user_instance = ScanUser()
-# scanned_id = scan_user_instance.get_scanned_id()
-# print(scanned_id)
