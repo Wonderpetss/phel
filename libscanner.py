@@ -16,6 +16,59 @@ sshtunnel.TUNNEL_TIMEOUT = 5.0
 current_date = datetime.now()
 formatted_current_date = current_date.strftime('%Y-%m-%d %H:%M:%S')
 
+import tkinter as tk
+
+class CustomMessageBoxYN:
+    def __init__(self, parent, title, message):
+        self.result = False
+        
+        self.popup = tk.Toplevel(parent)
+        self.popup.title(title)
+        self.popup.geometry("310x95") 
+        
+        label = tk.Label(self.popup, text=message)
+        label.pack(padx=15, pady=10)
+
+        button_frame = tk.Frame(self.popup)
+        button_frame.pack(padx=25, pady=13)
+
+        yes_button = tk.Button(button_frame, text="Yes", command=self.set_result_true, width=15, height=3)
+        yes_button.pack(side=tk.LEFT, padx=10, pady=1, expand=True)
+
+        no_button = tk.Button(button_frame, text="No", command=self.close, width=15, height=3)
+        no_button.pack(side=tk.LEFT, padx=10, pady=1, expand=True)
+
+        parent.update_idletasks()
+        x = parent.winfo_rootx() + (parent.winfo_width() - self.popup.winfo_width()) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - self.popup.winfo_height()) // 2
+        self.popup.geometry(f"+{x}+{y}")
+
+    def set_result_true(self):
+        self.result = True  
+        self.close()
+
+    def close(self):
+        self.popup.destroy()
+
+class CustomMessageBox:
+    def __init__(self, parent, title, message):
+        self.popup = tk.Toplevel(parent)
+        self.popup.title(title)
+        self.popup.geometry("280x100")
+        
+        label = tk.Label(self.popup, text=message, font=("Arial", 11))
+        label.pack(padx=20, pady=10)
+
+        button = tk.Button(self.popup, text="OK", command=self.close, width=10, font=("Arial", 11))
+        button.pack(pady=10)
+
+        parent.update_idletasks() 
+        x = parent.winfo_rootx() + (parent.winfo_width() - self.popup.winfo_width()) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - self.popup.winfo_height()) // 2
+        self.popup.geometry(f"+{x}+{y}")
+
+    def close(self):
+        self.popup.destroy()
 
 class User:
     def __init__(self, root):
@@ -140,11 +193,11 @@ class ScanUser:
                     user = cursor.fetchone()
 
                     if not user:
-                        messagebox.showwarning("Warning", "Username not found.")
+                        CustomMessageBox(self.window, "Warning", "Username not found.")
                         self.qr_scanid_label.config(text="Username: ")
                     
                     else:
-                        messagebox.showinfo("Username", "Successfully logged in")
+                        CustomMessageBox(self.window, "Username", "Successfully logged in")
                         print('Username exists')
                         self.scanIDpic.config(state="disabled")
                         self.Done.config(state="active")
@@ -154,7 +207,7 @@ class ScanUser:
                     connection.close()
 
             except Exception as e:
-                messagebox.showwarning("Warning", "Connection timed out. Try again.")
+                CustomMessageBox(self.window,"Warning", "Connection timed out. Try again.")
                 self.qr_scanid_label.config(text="Username:")
                 print("Error fetching data from database:", str(e))
 
@@ -189,9 +242,9 @@ class ScanUser:
         self.camera.release()
 
     def back_to_first_window(self):
-        asktoproceed = messagebox.askyesno("Confirmation", "Do you want to proceed to the methods window?")
-        
-        if asktoproceed:
+        message_box = CustomMessageBoxYN(self.window, "Confirmation", "Do you want to proceed to the methods window?")
+        self.window.wait_window(message_box.popup)
+        if message_box.result:
             self.window.destroy()
             self.camera_running = False
             if self.camera.isOpened():
@@ -205,16 +258,18 @@ class ScanUser:
     
 
     def done(self):
-        asktoproceed = messagebox.askyesno("Confirmation", "Do you want to proceed to the methods windows?")
-        
-        if asktoproceed:
+        message_box = CustomMessageBoxYN(self.window, "Confirmation", "Do you want to proceed to the methods window?")
+        self.window.wait_window(message_box.popup)
+        if message_box.result:
             self.camera_running = False
             if self.camera.isOpened():
                 self.camera.release()
             self.open_first_window()
         else:
-            ask_to_scan_again = messagebox.askyesno("Scan Again", "Do you want to scan again?")
-            if ask_to_scan_again:
+            message_box = CustomMessageBoxYN(self.window, "Scan Again", "Do you want to scan again?")
+            self.window.wait_window(message_box.popup)
+            if message_box.result:
+                self.qr_scanid_label.config(text=f"Username: ")
                 self.scanIDpic.config(state="active")
                 self.Done.config(state="disabled")
                 self.scan_id()  
@@ -264,7 +319,8 @@ class QRCodeScanner:
             borderwidth=0,
             highlightthickness=0,
             command=self.close_window,
-            relief="flat"
+            relief="flat",
+            bg="#FFFFFF"
         )
         self.stopCam.place(x =200 , y = 380, width = 250, height = 60)
         self.stopCam.image=img5   
@@ -325,7 +381,7 @@ class QRCodeScanner:
                 return set(qr_values)
             else:
                 print("Error fetching data from API:", response.text)
-                ok = messagebox.showwarning("Warning", "Connection timed out. Try again.")
+                ok = CustomMessageBox(self.window,"Warning", "Connection timed out. Try again.")
                 if ok:
                     self.open_combobox()
                 return set()
@@ -341,12 +397,15 @@ class QRCodeScanner:
         self.window.after(30, self.update)
 
     def close_window(self):
-        asktoproceed = messagebox.askyesno("Confirmation", "Done scanning?")
-        if asktoproceed:
+        message_box = CustomMessageBoxYN(self.window, "Confirmation", "Done scanning?")
+        self.window.wait_window(message_box.popup)
+        if message_box.result:
             self.update_stop_datetime()
             self.insert_misplaced()
-            ask = messagebox.askyesno("Confirmation", "Scan Again?")
-            if ask: 
+            
+            message_box = CustomMessageBoxYN(self.window, "Confirmation", "Scan Again?")
+            self.window.wait_window(message_box.popup)
+            if message_box.result:
                 self.camera_running = False
                 if self.camera.isOpened():
                     self.camera.release()
@@ -420,9 +479,9 @@ class QRCodeScanner:
             print("Error fetching data from database:", str(e))
 
     def back_to_first_window(self):
-        asktoproceed = messagebox.askyesno("Confirmation", "Do you want to proceed to the first window?")
-        
-        if asktoproceed:
+        message_box = CustomMessageBoxYN(self.window, "Confirmation", "Do you want to proceed to methods window?")
+        self.window.wait_window(message_box.popup)
+        if message_box.result:
             self.window.destroy()
             self.camera_running = False
             if self.camera.isOpened():
@@ -525,8 +584,9 @@ class Borrow:
             self.strqr = str(self.qr_data)
             self.BookBorrow.config(state="disabled")
 
-            asktoproceed = messagebox.askyesno("Confirmation", "Done scanning?") 
-            if asktoproceed:   
+            message_box = CustomMessageBoxYN(self.window, "Confirmation", "Done scanning?")
+            self.window.wait_window(message_box.popup)
+            if message_box.result:
                 try:
                     with sshtunnel.SSHTunnelForwarder(
                     ('ssh.pythonanywhere.com'),
@@ -568,10 +628,10 @@ class Borrow:
                             cursor.execute(insert_query, data_to_insert)
                             connection.commit()
                             print('Successfully inserted')
-                            messagebox.showinfo("Success", "Borrowed succesfully.")
+                            CustomMessageBox(self.window,"Success", "Borrowed succesfully.")
 
                         else:
-                            messagebox.showwarning("Warning", "Book not found in inventory")
+                            CustomMessageBox(self.window,"Warning", "Book not found in inventory")
 
 
                         cursor.close()
@@ -579,10 +639,11 @@ class Borrow:
 
                 except Exception as e:
                     print("Error fetching data from database:", str(e))
-                    messagebox.showinfo("Try Again", "Connection Timed out. Try again")
+                    CustomMessageBox(self.window,"Try Again", "Connection Timed out. Try again")
                 
-                asktoproceed = messagebox.askyesno("Confirmation", "Scan with the same borrower again?")
-                if asktoproceed:
+                message_box = CustomMessageBoxYN(self.window, "Scan Again", "Scan with the same borrower again?")
+                self.window.wait_window(message_box.popup)
+                if message_box.result:
                     self.BookBorrow.config(state="active")
                 else:
                     self.qr_borrower_label.config(text=f"Borrower: ")
@@ -590,8 +651,9 @@ class Borrow:
                     self.BookBorrow.config(state="disabled")
                     self.ScanBorrower.config(state="active")
             else:
-                asktoproceed = messagebox.askyesno("Confirmation", "Scan the book again?")
-                if asktoproceed:
+                message_box = CustomMessageBoxYN(self.window, "Scan Again", "Scan the book again?")
+                self.window.wait_window(message_box.popup)
+                if message_box.result:
                     self.BookBorrow.config(state="active")
                 
 
@@ -627,9 +689,9 @@ class Borrow:
         self.camera.release()
 
     def back_to_first_window(self):
-        asktoproceed = messagebox.askyesno("Confirmation", "Do you want to proceed to the first window?")
-        
-        if asktoproceed:
+        message_box = CustomMessageBoxYN(self.window, "Confirmation", "Do you want to proceed to methods window?")
+        self.window.wait_window(message_box.popup)
+        if message_box.result:
             self.window.destroy()
             self.camera_running = False
             if self.camera.isOpened():
@@ -715,8 +777,9 @@ class Return:
             self.qr_data_label.config(text=f"Return Book: {self.qr_data}")
             self.strqr = self.qr_data
 
-            asktoproceed = messagebox.askyesno("Confirmation", "Done scanning?") 
-            if asktoproceed:  
+            message_box = CustomMessageBoxYN(self.window, "Confirmation", "Done scanning?")
+            self.window.wait_window(message_box.popup)
+            if message_box.result:  
                 try:
                     with sshtunnel.SSHTunnelForwarder(
                     ('ssh.pythonanywhere.com'),
@@ -762,24 +825,25 @@ class Return:
                                     cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned Late', self.strqr, self.borrowerqr))
                                     connection.commit()
                                     print("returned late")
-                                    messagebox.showwarning("Warning", "Book is returned late.")
+                                    CustomMessageBox(self.window,"Warning", "Book is returned late.")
 
                                 else:
                                     cursor.execute("UPDATE borrowed_books SET status = %s WHERE book_id = %s and borrower = %s", ('Returned', self.strqr, self.borrowerqr))
                                     connection.commit()
                                     print("returned")
-                                    messagebox.showinfo("Information", "Successfully returned.")
+                                    CustomMessageBox(self.window,"Information", "Successfully returned.")
                                    
 
                         cursor.close()
                         connection.close()
 
                 except Exception as e:
-                    messagebox.showinfo("Try Again", "Connection Timed out. Try again")
+                    CustomMessageBox(self.window,"Try Again", "Connection Timed out. Try again")
                     print("Error fetching data from database:", str(e))
                 
-                asktoproceed = messagebox.askyesno("Confirmation", "Scan with the same borrower again?")
-                if asktoproceed:
+                message_box = CustomMessageBoxYN(self.window, "Scan Again", "Scan with the same borrower again?")
+                self.window.wait_window(message_box.popup)
+                if message_box.result:
                     self.BookBorrow.config(state="active")
                 else:
                     self.qr_borrower_label.config(text=f"Borrower: ")
@@ -787,8 +851,9 @@ class Return:
                     self.BookBorrow.config(state="disabled")
                     self.ScanBorrower.config(state="active")
             else:
-                asktoproceed = messagebox.askyesno("Confirmation", "Scan the book again?")
-                if asktoproceed:
+                message_box = CustomMessageBoxYN(self.window, "Scan Again", "Scan the book again?")
+                self.window.wait_window(message_box.popup)
+                if message_box.result:
                     self.BookBorrow.config(state="active")
                 
 
@@ -824,9 +889,9 @@ class Return:
         self.camera.release()
     
     def back_to_first_window(self):
-        asktoproceed = messagebox.askyesno("Confirmation", "Do you want to proceed to the first window?")
-        
-        if asktoproceed:
+        message_box = CustomMessageBoxYN(self.window, "Confirmation", "Do you want to proceed to methods window?")
+        self.window.wait_window(message_box.popup)
+        if message_box.result:
             self.window.destroy()
             self.camera_running = False
             if self.camera.isOpened():
@@ -940,9 +1005,9 @@ class FirstWindow:
         Return(self.window)
 
     def scan_user_window(self):
-        asktoproceed = messagebox.askyesno("Confirmation", "Are you sure you want to log out?")
-        
-        if asktoproceed:
+        message_box = CustomMessageBoxYN(self.window, "Confirmation", "Are you sure you want to log-out?")
+        self.window.wait_window(message_box.popup)
+        if message_box.result:
             self.window.withdraw()
             user_window = tk.Toplevel(self.parent_window)
             user_window.title("User Window")
@@ -1063,11 +1128,12 @@ class MainApplication(tk.Toplevel):
             qr_scanner.show_scanuser_label(self.scanuser)
             self.return2.config(command=qr_scanner.close_window) 
         else:
-            messagebox.showwarning("Warning", "Please select both shelf and row first.")
+            CustomMessageBox(self,"Warning", "Please select both shelf and row first.")
 
     def back_to_first_window(self):
-        ask_to_proceed = messagebox.askyesno("Confirmation", "Do you want to proceed to the first window?")
-        if ask_to_proceed:
+        message_box = CustomMessageBoxYN(self, "Confirmation", "Do you want to proceed to methods window?")
+        self.wait_window(message_box.popup)
+        if message_box.result:
             self.destroy()
             self.parent_window.deiconify()
 
