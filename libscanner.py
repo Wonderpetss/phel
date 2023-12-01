@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 import MySQLdb
 import sshtunnel
 
+os.environ['DISPLAY'] = ':0'
+
 sshtunnel.SSH_TIMEOUT = 5.0
 sshtunnel.TUNNEL_TIMEOUT = 5.0
 
@@ -24,7 +26,7 @@ class CustomMessageBoxYN:
         
         self.popup = tk.Toplevel(parent)
         self.popup.title(title)
-        self.popup.geometry("310x95") 
+        self.popup.geometry("365x100") 
         
         label = tk.Label(self.popup, text=message)
         label.pack(padx=15, pady=10)
@@ -38,7 +40,7 @@ class CustomMessageBoxYN:
         no_button = tk.Button(button_frame, text="No", command=self.close, width=15, height=3)
         no_button.pack(side=tk.LEFT, padx=10, pady=1, expand=True)
 
-        x = (800 - 280) // 2
+        x = (800 - 365) // 2
         y = (480 - 100) // 2
 
         self.popup.geometry(f"+{x}+{y}")
@@ -107,13 +109,12 @@ class User:
             command=self.scanuser_window,
             relief="flat"
         )
-        self.b1.place(x=258, y=195, width=103, height=95)
+        self.b1.place(x=258, y=195, width=117, height=95)
         self.b1.image = img1  
      
     def scanuser_window(self):
         self.root.withdraw()
         ScanUser(self.root)
-
 
 class ScanUser:
     def __init__(self, parent_window=None):
@@ -272,8 +273,7 @@ class ScanUser:
                 self.qr_scanid_label.config(text=f"Username: ")
                 self.scanIDpic.config(state="active")
                 self.Done.config(state="disabled")
-                self.scan_id()  
-           
+                self.scan_id()            
 
 class QRCodeScanner:
     def __init__(self, parent_window=None, selected_shelf="", selected_row="", scanuser = None):
@@ -286,8 +286,8 @@ class QRCodeScanner:
         self.window.title("QR Code Scanner")
 
         self.camera = cv2.VideoCapture(0)
-        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 550)  # Set the width to 1920 pixels
-        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 400)  # Set the height to 1080 pixels
+        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 550)  
+        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 400)  
 
         self.canvas = tk.Canvas(
             self.window,
@@ -336,12 +336,6 @@ class QRCodeScanner:
         )
         self.Homie.place(x =10 , y = 390, width = 30, height = 23)
         self.Homie.image=imgH  
-       
-        # self.stop_button = Button(self.window, text="Stop Camera", command=self.close_window)
-        # self.stop_button.pack()
-
-        # self.back_button = Button(self.window, text="Back to First Window", command=self.back_to_first_window)
-        # self.back_button.pack()
 
         self.qr_values = self.retrieve_data(self.selected_shelf, self.selected_row)  
         self.camera_running = True
@@ -601,7 +595,7 @@ class Borrow:
 
                         print(self.strqr)
                         #get quantity of the book_id detected
-                        cursor.execute("SELECT quantity FROM gen_books WHERE book_id = %s", (self.strqr,))
+                        cursor.execute("SELECT quantity FROM gen_books WHERE book_loc = %s", (self.strqr,))
                         cur_quan = cursor.fetchone()
 
                         if cur_quan:
@@ -609,12 +603,12 @@ class Borrow:
                             new_quan = cur_quan - 1  
 
                             #update quantity field -subtract 1
-                            cursor.execute("UPDATE gen_books SET quantity = %s WHERE book_id = %s", (new_quan, self.strqr))
+                            cursor.execute("UPDATE gen_books SET quantity = %s WHERE book_loc = %s", (new_quan, self.strqr))
                             connection.commit()
                             print("Quantity updated successfully!")
 
                             if new_quan == 0:
-                                cursor.execute("UPDATE gen_books SET availability = %s WHERE book_id = %s", ('not available', self.strqr))
+                                cursor.execute("UPDATE gen_books SET availability = %s WHERE book_loc = %s", ('not available', self.strqr))
                                 connection.commit()
                                 print("Book not available")
 
@@ -736,15 +730,15 @@ class Return:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         
         imgbook2 = PhotoImage(file=os.path.join(script_dir, "ReturnLogo.png"))
-        self.BookBorrow = Button(
+        self.BookReturnw = Button(
             self.canvas,
             image = imgbook2,
             borderwidth = 0,
             highlightthickness = 0,
             command = self.return_qr_code,
             relief = "flat")
-        self.BookBorrow.place(x = 481, y = 360, width = 158, height = 75)
-        self.BookBorrow.image=imgbook2  
+        self.BookReturn.place(x = 481, y = 360, width = 158, height = 75)
+        self.BookReturn.image=imgbook2  
 
         imgH = PhotoImage(file=os.path.join(script_dir, "Homie.png"))
         self.Homie = Button(
@@ -766,7 +760,7 @@ class Return:
             self.qr_borrower_label.config(text=f"Borrower: {self.qr_databorrowers}")
             self.borrowerqr = self.qr_databorrowers
 
-            self.BookBorrow.config(state="active")
+            self.Book.config(state="active")
             self.ScanBorrower.config(state="disabled")
 
     def return_qr_code(self):
@@ -793,7 +787,7 @@ class Return:
                         cursor = connection.cursor()
 
                         #get quantity of the book_id detected
-                        cursor.execute("SELECT quantity FROM gen_books WHERE book_id = %s", (self.strqr,))
+                        cursor.execute("SELECT quantity FROM gen_books WHERE book_loc = %s", (self.strqr,))
                         cur_quan = cursor.fetchone()
 
                         if cur_quan:
@@ -801,12 +795,12 @@ class Return:
                             new_quan = cur_quan + 1  
 
                             #update quantity field -subtract 1
-                            cursor.execute("UPDATE gen_books SET quantity = %s WHERE book_id = %s", (new_quan, self.strqr))
+                            cursor.execute("UPDATE gen_books SET quantity = %s WHERE book_loc = %s", (new_quan, self.strqr))
                             connection.commit()
                             print("Quantity updated successfully!")
 
                             if new_quan > 0:
-                                cursor.execute("UPDATE gen_books SET availability = %s WHERE book_id = %s", ('available', self.strqr))
+                                cursor.execute("UPDATE gen_books SET availability = %s WHERE book_loc = %s", ('available', self.strqr))
                                 connection.commit()
                                 print("Book available")
 
@@ -1010,6 +1004,58 @@ class FirstWindow:
             user_window.title("User Window")
             User(user_window)
 
+class CustomCombobox:
+    def __init__(self, master, values):
+        self.master = master
+        self.values = values
+
+        self.entry_var = tk.StringVar()
+        self.entry = tk.Entry(master, textvariable=self.entry_var, font=("Helvetica", 16))
+        self.entry.pack(pady=10)
+        self.entry.bind("<Button-1>", self.show_dropdown)
+
+        self.listbox = tk.Listbox(master, font=("Helvetica", 16), selectmode=tk.SINGLE)
+        for item in values:
+            self.listbox.insert(tk.END, item)
+
+        self.listbox.bind("<Button-1>", self.on_listbox_select)
+        self.listbox.place_forget()
+
+    def on_listbox_select(self, event):
+        selected_index = self.listbox.curselection()
+        if selected_index:
+            selected_value = self.listbox.get(selected_index)
+            self.entry_var.set(selected_value)
+            self.listbox.place_forget()
+
+    def on_touch_release(self, event):
+        x = event.x_root - self.master.winfo_rootx()
+        y = event.y_root - self.master.winfo_rooty()
+        if self.entry.winfo_rootx() <= x <= self.entry.winfo_rootx() + self.entry.winfo_width() and \
+                self.entry.winfo_rooty() <= y <= self.entry.winfo_rooty() + self.entry.winfo_height():
+            self.show_dropdown()
+
+        if self.listbox.winfo_ismapped() and not (self.listbox.winfo_rootx() <= x <= self.listbox.winfo_rootx() + self.listbox.winfo_width() and \
+                self.listbox.winfo_rooty() <= y <= self.listbox.winfo_rooty() + self.listbox.winfo_height()):
+            self.listbox.place_forget()
+
+    def bind_touch_events(self):
+        self.entry.bind("<ButtonRelease-1>", self.on_touch_release)
+        self.listbox.bind("<ButtonRelease-1>", self.on_listbox_select)
+
+    def show_dropdown(self, event):
+        x_entry, y_entry, width, height = self.entry.winfo_rootx(), self.entry.winfo_rooty(), self.entry.winfo_width(), self.entry.winfo_height()
+        x_master = self.master.winfo_rootx() 
+        y_master = self.master.winfo_rooty()  
+
+        
+        rel_x = x_entry - x_master
+        rel_y = y_entry - y_master + height  
+
+       
+        self.listbox.place(x=rel_x, y=rel_y)
+        self.listbox.lift()
+
 class MainApplication(tk.Toplevel):
     def __init__(self, parent_window, scanuser_str=None):
         self.parent_window = parent_window
@@ -1052,29 +1098,25 @@ class MainApplication(tk.Toplevel):
 
         self.Home.place(x = 80, y = 108, width = 40, height = 39)
         self.Home.image=imgHome
-        self.combo_box_value = tk.StringVar()  
+        self.combo_box_value = tk.StringVar() 
         self.row_value = tk.StringVar() 
 
-        self.combo_box = ttk.Combobox(
-            self, 
-            values=["shelf01", "shelf02", "shelf03", "shelf04", "shelf05", "shelf06",
-                    "shelf07", "shelf08", "shelf09", "shelf10", "shelf11", "shelf12",
-                    "shelf13", "shelf14", "shelf15"],
-            textvariable=self.combo_box_value,
-            font=("Arial", 14),
-            state="readonly",
-)
-        self.combo_box.place(x=140, y=150, width=150, height=39)
-        
-        self.row = ttk.Combobox(
-            self, 
-            values=["R-1", "R-2", "R-3", "R-4", "R-5"],
-            textvariable=self.row_value,
-            font=("Arial", 14),
-            state="readonly",
-)
-        self.row.place(x=347, y=150, width=150, height=39)
-        
+         # Create an instance of CustomCombobox for shelf selection
+        self.combo_box_values = ["shelf01", "shelf02", "shelf03", "shelf04", "shelf05", "shelf06",
+                            "shelf07", "shelf08", "shelf09", "shelf10", "shelf11", "shelf12",
+                            "shelf13", "shelf14", "shelf15"]
+        self.custom_combobox_shelf = CustomCombobox(self, self.combo_box_values)
+        self.custom_combobox_shelf.entry.place(x=140, y=150, width=150, height=39)
+
+        # Create an instance of CustomCombobox for row selection
+        self.row_values = ["R1", "R2", "R3", "R4", "R5"]
+        self.custom_combobox_row = CustomCombobox(self, self.row_values)
+        self.custom_combobox_row.entry.place(x=347, y=150, width=150, height=39)
+
+        self.custom_combobox_shelf.entry.bind("<<ComboboxSelected>>", self.update_selected_shelf_label)
+        self.custom_combobox_row.entry.bind("<<ComboboxSelected>>", self.update_selected_row_label)
+
+
         img4 = PhotoImage(file=os.path.join(script_dir, "BroBro.png"))
         self.return2 = Button(
             self.canvas,
@@ -1084,12 +1126,12 @@ class MainApplication(tk.Toplevel):
             command=self.open_scanner,
             relief="flat"
         )
-        self.return2.place(x=270, y=220, width=100, height=90)
+        self.return2.place(x=270, y=220, width=120, height=90)
         self.return2.image=img4
         
-        self.combo_box.bind("<<ComboboxSelected>>", self.update_selected_shelf_label)
+        # self.combo_box.bind("<<ComboboxSelected>>", self.update_selected_shelf_label)
 
-        self.row.bind("<<ComboboxSelected>>", self.update_selected_shelf_label)
+        # self.row.bind("<<ComboboxSelected>>", self.update_selected_shelf_label)
 
         self.selected_shelf_label = Label(self, text="Selected Shelf: None")
         self.selected_shelf_label.pack_forget()
@@ -1117,8 +1159,10 @@ class MainApplication(tk.Toplevel):
 
 
     def open_scanner(self):
-        selected_shelf = self.combo_box_value.get()
-        selected_row = self.row_value.get()
+        selected_shelf = self.custom_combobox_shelf.entry_var.get()
+        print(selected_shelf)
+        selected_row = self.custom_combobox_row.entry_var.get()
+        print(selected_row)
         if selected_shelf and selected_row:
             self.withdraw()
             qr_scanner = QRCodeScanner(self.parent_window, selected_shelf, selected_row)
