@@ -38,9 +38,9 @@ class CustomMessageBoxYN:
         no_button = tk.Button(button_frame, text="No", command=self.close, width=15, height=3)
         no_button.pack(side=tk.LEFT, padx=10, pady=1, expand=True)
 
-        parent.update_idletasks()
-        x = parent.winfo_rootx() + (parent.winfo_width() - self.popup.winfo_width()) // 2
-        y = parent.winfo_rooty() + (parent.winfo_height() - self.popup.winfo_height()) // 2
+        x = (800 - 280) // 2
+        y = (480 - 100) // 2
+
         self.popup.geometry(f"+{x}+{y}")
 
     def set_result_true(self):
@@ -62,9 +62,9 @@ class CustomMessageBox:
         button = tk.Button(self.popup, text="OK", command=self.close, width=10, font=("Arial", 11))
         button.pack(pady=10)
 
-        parent.update_idletasks() 
-        x = parent.winfo_rootx() + (parent.winfo_width() - self.popup.winfo_width()) // 2
-        y = parent.winfo_rooty() + (parent.winfo_height() - self.popup.winfo_height()) // 2
+        x = (800 - 280) // 2
+        y = (480 - 100) // 2
+
         self.popup.geometry(f"+{x}+{y}")
 
     def close(self):
@@ -197,19 +197,19 @@ class ScanUser:
                         self.qr_scanid_label.config(text="Username: ")
                     
                     else:
-                        CustomMessageBox(self.window, "Username", "Successfully logged in")
+                       
                         print('Username exists')
                         self.scanIDpic.config(state="disabled")
                         self.Done.config(state="active")
 
-                        
                     cursor.close()
                     connection.close()
 
+
             except Exception as e:
-                CustomMessageBox(self.window,"Warning", "Connection timed out. Try again.")
                 self.qr_scanid_label.config(text="Username:")
                 print("Error fetching data from database:", str(e))
+                CustomMessageBox(self.window,"Warning", "Connection timed out. Try again.")
 
 
     def update(self):
@@ -273,8 +273,7 @@ class ScanUser:
                 self.scanIDpic.config(state="active")
                 self.Done.config(state="disabled")
                 self.scan_id()  
-            else:
-                pass  
+           
 
 class QRCodeScanner:
     def __init__(self, parent_window=None, selected_shelf="", selected_row="", scanuser = None):
@@ -381,13 +380,11 @@ class QRCodeScanner:
                 return set(qr_values)
             else:
                 print("Error fetching data from API:", response.text)
-                ok = CustomMessageBox(self.window,"Warning", "Connection timed out. Try again.")
-                if ok:
-                    self.open_combobox()
-                return set()
+                # return set()
         except Exception as e:
             print("Error fetching data from API:", str(e))
-            return set()
+            # maireturn set()
+    
 
     def update(self):
         ret, frame = self.camera.read()
